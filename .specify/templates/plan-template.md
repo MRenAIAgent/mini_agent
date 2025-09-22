@@ -47,7 +47,35 @@
 ## Constitution Check
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-[Gates determined based on constitution file]
+### Simplified Design (Principle I)
+- [ ] Feature is broken into simple, composable parts
+- [ ] No unnecessary complexity introduced
+- [ ] Code readability prioritized over clever optimizations
+- [ ] Clear justification for any complexity
+
+### Python Design Principles (Principle II)
+- [ ] Follows Pythonic patterns and Zen of Python
+- [ ] PEP 8 compliance planned
+- [ ] Duck typing and protocols preferred over rigid inheritance
+- [ ] Explicit interfaces over implicit behavior
+
+### Test-Driven Development (Principle III) - NON-NEGOTIABLE
+- [ ] TDD approach planned (Red-Green-Refactor)
+- [ ] Tests written before implementation in Phase 1
+- [ ] 90% code coverage target set
+- [ ] Contract tests and integration tests planned
+
+### Performance & Accuracy (Principle IV)
+- [ ] Sub-second response time targets defined
+- [ ] Memory usage optimization planned
+- [ ] LLM token optimization considered
+- [ ] Performance benchmarks included
+
+### Ease of Use (Principle V)
+- [ ] API design is intuitive with minimal configuration
+- [ ] Sensible defaults planned
+- [ ] Clear error messages designed
+- [ ] Working examples included in documentation
 
 ## Project Structure
 
@@ -208,4 +236,4 @@ ios/ or android/
 - [ ] Complexity deviations documented
 
 ---
-*Based on Constitution v2.1.1 - See `/memory/constitution.md`*
+*Based on Constitution v1.0.0 - See `.specify/memory/constitution.md`*

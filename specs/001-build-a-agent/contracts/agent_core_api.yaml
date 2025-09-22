@@ -1,0 +1,655 @@
+openapi: 3.0.3
+info:
+  title: Enhanced Agent Framework Core API
+  description: Core API contracts for the Enhanced Agent Framework
+  version: 1.0.0
+
+components:
+  schemas:
+    AgentConfig:
+      type: object
+      properties:
+        execution_pattern:
+          type: string
+          enum: [react, planning, auto, simple]
+          default: auto
+        enable_memory:
+          type: boolean
+          default: true
+        enable_streaming:
+          type: boolean
+          default: false
+        memory_config:
+          $ref: '#/components/schemas/MemoryConfig'
+        llm_config:
+          $ref: '#/components/schemas/LLMConfig'
+      required:
+        - execution_pattern
+
+    MemoryConfig:
+      type: object
+      properties:
+        backend_type:
+          type: string
+          enum: [memgraph, redis, postgresql, in_memory]
+          default: memgraph
+        connection_string:
+          type: string
+        cache_size:
+          type: integer
+          default: 1000
+        decay_rate:
+          type: number
+          format: float
+          minimum: 0.0
+          maximum: 1.0
+          default: 0.01
+
+    LLMConfig:
+      type: object
+      properties:
+        provider:
+          type: string
+          example: openai
+        model:
+          type: string
+          example: gpt-4
+        api_key:
+          type: string
+          format: password
+        temperature:
+          type: number
+          format: float
+          minimum: 0.0
+          maximum: 2.0
+          default: 0.7
+      required:
+        - provider
+        - model
+
+    ExecutionRequest:
+      type: object
+      properties:
+        input:
+          type: string
+          description: User input to process
+        context:
+          type: object
+          description: Additional context for execution
+        execution_mode:
+          type: string
+          enum: [react, planning, auto, simple]
+        stream:
+          type: boolean
+          default: false
+      required:
+        - input
+
+    ExecutionResponse:
+      type: object
+      properties:
+        response:
+          type: string
+          description: Agent's response
+        execution_context:
+          $ref: '#/components/schemas/ExecutionContext'
+        performance_metrics:
+          $ref: '#/components/schemas/PerformanceMetrics'
+        success:
+          type: boolean
+
+    ExecutionContext:
+      type: object
+      properties:
+        context_id:
+          type: string
+          format: uuid
+        execution_pattern:
+          type: string
+        reasoning_steps:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReasoningStep'
+        tool_calls:
+          type: array
+          items:
+            $ref: '#/components/schemas/ToolCall'
+        memory_accessed:
+          type: array
+          items:
+            type: string
+        duration_ms:
+          type: integer
+
+    ReasoningStep:
+      type: object
+      properties:
+        step_id:
+          type: string
+          format: uuid
+        step_type:
+          type: string
+          enum: [thought, action, observation, summary]
+        content:
+          type: string
+        metadata:
+          type: object
+        timestamp:
+          type: string
+          format: date-time
+
+    ToolCall:
+      type: object
+      properties:
+        call_id:
+          type: string
+          format: uuid
+        tool_name:
+          type: string
+        input_data:
+          type: object
+        output_data:
+          type: object
+        success:
+          type: boolean
+        error_message:
+          type: string
+        latency_ms:
+          type: integer
+
+    MemoryEntry:
+      type: object
+      properties:
+        entry_id:
+          type: string
+          format: uuid
+        content:
+          type: string
+        entry_type:
+          type: string
+          enum: [conversation, fact, procedure, concept]
+        importance_score:
+          type: number
+          format: float
+          minimum: 0.0
+          maximum: 1.0
+        created_at:
+          type: string
+          format: date-time
+        relationships:
+          type: array
+          items:
+            $ref: '#/components/schemas/MemoryRelationship'
+
+    MemoryRelationship:
+      type: object
+      properties:
+        target_entry_id:
+          type: string
+          format: uuid
+        relationship_type:
+          type: string
+          enum: [causes, relates_to, contradicts, supports]
+        strength:
+          type: number
+          format: float
+          minimum: 0.0
+          maximum: 1.0
+
+    PerformanceMetrics:
+      type: object
+      properties:
+        total_time_ms:
+          type: integer
+        llm_calls:
+          type: integer
+        tool_calls:
+          type: integer
+        memory_operations:
+          type: integer
+        tokens_used:
+          type: integer
+        memory_usage_mb:
+          type: number
+          format: float
+
+    BenchmarkRequest:
+      type: object
+      properties:
+        benchmark_suite:
+          type: string
+          example: agent_comparison
+        agent_config:
+          $ref: '#/components/schemas/AgentConfig'
+        comparison_frameworks:
+          type: array
+          items:
+            type: string
+          example: [langchain, langgraph]
+
+    BenchmarkResult:
+      type: object
+      properties:
+        benchmark_name:
+          type: string
+        overall_score:
+          type: number
+          format: float
+        detailed_metrics:
+          type: object
+        comparison_results:
+          type: object
+        execution_summary:
+          $ref: '#/components/schemas/PerformanceMetrics'
+
+    Error:
+      type: object
+      properties:
+        error_code:
+          type: string
+        message:
+          type: string
+        details:
+          type: object
+        timestamp:
+          type: string
+          format: date-time
+
+paths:
+  /agent/create:
+    post:
+      summary: Create a new agent instance
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AgentConfig'
+      responses:
+        '201':
+          description: Agent created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  agent_id:
+                    type: string
+                    format: uuid
+                  status:
+                    type: string
+                    example: ready
+        '400':
+          description: Invalid configuration
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /agent/{agent_id}/execute:
+    post:
+      summary: Execute agent on input
+      parameters:
+        - name: agent_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExecutionRequest'
+      responses:
+        '200':
+          description: Execution completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExecutionResponse'
+            text/event-stream:
+              schema:
+                type: string
+              description: Streaming response when stream=true
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Execution error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /agent/{agent_id}/memory:
+    get:
+      summary: Query agent memory
+      parameters:
+        - name: agent_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: query
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+      responses:
+        '200':
+          description: Memory entries retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  entries:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/MemoryEntry'
+                  total_count:
+                    type: integer
+
+    post:
+      summary: Add memory entry
+      parameters:
+        - name: agent_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                content:
+                  type: string
+                entry_type:
+                  type: string
+                  enum: [conversation, fact, procedure, concept]
+                importance_score:
+                  type: number
+                  format: float
+              required:
+                - content
+                - entry_type
+      responses:
+        '201':
+          description: Memory entry created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemoryEntry'
+
+  /agent/{agent_id}/tools:
+    get:
+      summary: List available tools
+      parameters:
+        - name: agent_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Tools listed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tools:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        tool_id:
+                          type: string
+                        name:
+                          type: string
+                        description:
+                          type: string
+                        status:
+                          type: string
+
+    post:
+      summary: Register a new tool
+      parameters:
+        - name: agent_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+                tool_type:
+                  type: string
+                  enum: [local, mcp_server, rest_api]
+                connection_info:
+                  type: object
+                schema:
+                  type: object
+              required:
+                - name
+                - tool_type
+      responses:
+        '201':
+          description: Tool registered
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tool_id:
+                    type: string
+                  status:
+                    type: string
+
+  /benchmark:
+    post:
+      summary: Run benchmark comparison
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BenchmarkRequest'
+      responses:
+        '200':
+          description: Benchmark completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BenchmarkResult'
+        '400':
+          description: Invalid benchmark request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /benchmark/history:
+    get:
+      summary: Get benchmark history
+      parameters:
+        - name: suite_name
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+      responses:
+        '200':
+          description: Benchmark history
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  comparisons:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/BenchmarkResult'
+
+  /agent/{agent_id}/stream:
+    post:
+      summary: Execute agent with streaming response
+      parameters:
+        - name: agent_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExecutionRequest'
+      responses:
+        '200':
+          description: Streaming execution
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                description: Server-sent events with response chunks
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /llm/providers:
+    get:
+      summary: List available LLM providers
+      responses:
+        '200':
+          description: Available providers
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  providers:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                        models:
+                          type: array
+                          items:
+                            type: string
+                        capabilities:
+                          type: array
+                          items:
+                            type: string
+
+  /examples:
+    get:
+      summary: Get in-context learning examples
+      parameters:
+        - name: agent_id
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: query
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 5
+      responses:
+        '200':
+          description: Relevant examples
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  examples:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        input:
+                          type: string
+                        output:
+                          type: string
+                        relevance_score:
+                          type: number
+                          format: float
+
+    post:
+      summary: Add in-context learning example
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                agent_id:
+                  type: string
+                  format: uuid
+                input:
+                  type: string
+                output:
+                  type: string
+                tags:
+                  type: array
+                  items:
+                    type: string
+              required:
+                - agent_id
+                - input
+                - output
+      responses:
+        '201':
+          description: Example added
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  example_id:
+                    type: string
+                    format: uuid

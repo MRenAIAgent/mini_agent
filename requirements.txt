@@ -1,0 +1,21 @@
+# Enhanced Agent Framework Dependencies
+# Core LLM integration
+litellm>=1.0.0
+
+# Memory backends (optional but recommended)
+memgraph>=1.0.0
+redis>=4.0.0
+
+# Existing dependencies (preserving current functionality)
+asyncio
+pydantic>=2.0.0
+typing-extensions
+
+# Development and testing
+pytest>=7.0.0
+pytest-asyncio>=0.21.0
+coverage>=6.0.0
+ruff>=0.1.0
+black>=22.0.0
+isort>=5.0.0
+mypy>=1.0.0

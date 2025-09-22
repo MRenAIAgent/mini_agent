@@ -1,0 +1,322 @@
+openapi: 3.0.3
+info:
+  title: Memory System API
+  description: Memory management contracts for the Enhanced Agent Framework
+  version: 1.0.0
+
+components:
+  schemas:
+    MemoryQuery:
+      type: object
+      properties:
+        query_text:
+          type: string
+          description: Text to search for in memory
+        query_type:
+          type: string
+          enum: [semantic, bm25, hybrid, graph_traversal]
+          default: hybrid
+        filters:
+          type: object
+          properties:
+            entry_types:
+              type: array
+              items:
+                type: string
+            importance_threshold:
+              type: number
+              format: float
+            time_range:
+              type: object
+              properties:
+                start:
+                  type: string
+                  format: date-time
+                end:
+                  type: string
+                  format: date-time
+        limit:
+          type: integer
+          default: 10
+          maximum: 100
+
+    MemoryQueryResult:
+      type: object
+      properties:
+        entries:
+          type: array
+          items:
+            $ref: '#/components/schemas/EnrichedMemoryEntry'
+        total_matches:
+          type: integer
+        query_time_ms:
+          type: integer
+        relevance_scores:
+          type: array
+          items:
+            type: number
+            format: float
+
+    EnrichedMemoryEntry:
+      allOf:
+        - $ref: './agent_core_api.yaml#/components/schemas/MemoryEntry'
+        - type: object
+          properties:
+            relevance_score:
+              type: number
+              format: float
+            context_path:
+              type: array
+              items:
+                type: string
+              description: Graph path to this entry
+            related_concepts:
+              type: array
+              items:
+                type: string
+
+    MemorySummary:
+      type: object
+      properties:
+        session_id:
+          type: string
+        summary_text:
+          type: string
+        key_concepts:
+          type: array
+          items:
+            type: string
+        important_facts:
+          type: array
+          items:
+            type: string
+        conversation_topics:
+          type: array
+          items:
+            type: string
+        summary_timestamp:
+          type: string
+          format: date-time
+
+    KnowledgeGraph:
+      type: object
+      properties:
+        nodes:
+          type: array
+          items:
+            $ref: '#/components/schemas/ConceptNode'
+        edges:
+          type: array
+          items:
+            $ref: '#/components/schemas/ConceptRelationship'
+        graph_stats:
+          type: object
+          properties:
+            node_count:
+              type: integer
+            edge_count:
+              type: integer
+            connected_components:
+              type: integer
+
+    ConceptNode:
+      type: object
+      properties:
+        concept_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        type:
+          type: string
+          enum: [entity, action, attribute, relationship]
+        definition:
+          type: string
+        confidence:
+          type: number
+          format: float
+        supporting_entries:
+          type: array
+          items:
+            type: string
+            format: uuid
+
+    ConceptRelationship:
+      type: object
+      properties:
+        source_concept_id:
+          type: string
+          format: uuid
+        target_concept_id:
+          type: string
+          format: uuid
+        relationship_type:
+          type: string
+        strength:
+          type: number
+          format: float
+        evidence_count:
+          type: integer
+
+    MemoryDecayStatus:
+      type: object
+      properties:
+        total_entries:
+          type: integer
+        entries_decayed:
+          type: integer
+        entries_removed:
+          type: integer
+        decay_stats:
+          type: object
+          properties:
+            avg_decay_factor:
+              type: number
+              format: float
+            oldest_entry_age_days:
+              type: integer
+            newest_entry_age_days:
+              type: integer
+
+paths:
+  /memory/search:
+    post:
+      summary: Search memory with advanced queries
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MemoryQuery'
+      responses:
+        '200':
+          description: Search results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemoryQueryResult'
+
+  /memory/summarize:
+    post:
+      summary: Generate memory summary for session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                session_id:
+                  type: string
+                summary_type:
+                  type: string
+                  enum: [conversation, facts, concepts, comprehensive]
+                  default: comprehensive
+              required:
+                - session_id
+      responses:
+        '200':
+          description: Summary generated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemorySummary'
+
+  /memory/knowledge-graph:
+    get:
+      summary: Get knowledge graph for agent
+      parameters:
+        - name: agent_id
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: depth
+          in: query
+          schema:
+            type: integer
+            default: 2
+        - name: concept_filter
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Knowledge graph
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KnowledgeGraph'
+
+  /memory/decay:
+    post:
+      summary: Apply temporal decay to memory entries
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                agent_id:
+                  type: string
+                  format: uuid
+                decay_strategy:
+                  type: string
+                  enum: [linear, exponential, usage_based]
+                  default: exponential
+                decay_rate:
+                  type: number
+                  format: float
+                  default: 0.01
+                min_importance_threshold:
+                  type: number
+                  format: float
+                  default: 0.1
+              required:
+                - agent_id
+      responses:
+        '200':
+          description: Decay applied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemoryDecayStatus'
+
+  /memory/recommendations:
+    get:
+      summary: Get memory-based recommendations
+      parameters:
+        - name: agent_id
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: current_context
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Recommendations generated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  use_memory:
+                    type: boolean
+                    description: Whether to use memory for current context
+                  recommended_queries:
+                    type: array
+                    items:
+                      type: string
+                  fresh_data_needed:
+                    type: boolean
+                    description: Whether fresh external data is needed
+                  reasoning:
+                    type: string
+                    description: Explanation for recommendation

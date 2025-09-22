@@ -1,0 +1,472 @@
+openapi: 3.0.3
+info:
+  title: Tool Integration API
+  description: Tool and MCP integration contracts for the Enhanced Agent Framework
+  version: 1.0.0
+
+components:
+  schemas:
+    ToolDefinition:
+      type: object
+      properties:
+        name:
+          type: string
+          pattern: '^[a-zA-Z][a-zA-Z0-9_]*$'
+        description:
+          type: string
+        tool_type:
+          type: string
+          enum: [local_function, mcp_server, rest_api, python_module]
+        connection_config:
+          $ref: '#/components/schemas/ConnectionConfig'
+        input_schema:
+          type: object
+          description: JSON Schema for tool input validation
+        output_schema:
+          type: object
+          description: JSON Schema for tool output validation
+        timeout_seconds:
+          type: integer
+          default: 30
+        retry_config:
+          $ref: '#/components/schemas/RetryConfig'
+        tags:
+          type: array
+          items:
+            type: string
+      required:
+        - name
+        - description
+        - tool_type
+        - input_schema
+
+    ConnectionConfig:
+      oneOf:
+        - $ref: '#/components/schemas/MCPServerConfig'
+        - $ref: '#/components/schemas/RestAPIConfig'
+        - $ref: '#/components/schemas/LocalFunctionConfig'
+
+    MCPServerConfig:
+      type: object
+      properties:
+        config_type:
+          type: string
+          const: mcp_server
+        server_path:
+          type: string
+          description: Path to MCP server executable
+        server_args:
+          type: array
+          items:
+            type: string
+        environment_vars:
+          type: object
+        transport:
+          type: string
+          enum: [stdio, websocket, sse]
+          default: stdio
+      required:
+        - config_type
+        - server_path
+
+    RestAPIConfig:
+      type: object
+      properties:
+        config_type:
+          type: string
+          const: rest_api
+        base_url:
+          type: string
+          format: uri
+        authentication:
+          $ref: '#/components/schemas/AuthConfig'
+        headers:
+          type: object
+        timeout_seconds:
+          type: integer
+          default: 30
+      required:
+        - config_type
+        - base_url
+
+    LocalFunctionConfig:
+      type: object
+      properties:
+        config_type:
+          type: string
+          const: local_function
+        module_path:
+          type: string
+        function_name:
+          type: string
+        import_path:
+          type: string
+      required:
+        - config_type
+        - module_path
+        - function_name
+
+    AuthConfig:
+      oneOf:
+        - type: object
+          properties:
+            type:
+              type: string
+              const: bearer
+            token:
+              type: string
+        - type: object
+          properties:
+            type:
+              type: string
+              const: api_key
+            key:
+              type: string
+            header_name:
+              type: string
+              default: X-API-Key
+        - type: object
+          properties:
+            type:
+              type: string
+              const: basic
+            username:
+              type: string
+            password:
+              type: string
+
+    RetryConfig:
+      type: object
+      properties:
+        max_attempts:
+          type: integer
+          default: 3
+        backoff_strategy:
+          type: string
+          enum: [fixed, exponential, linear]
+          default: exponential
+        base_delay_seconds:
+          type: number
+          format: float
+          default: 1.0
+        max_delay_seconds:
+          type: number
+          format: float
+          default: 60.0
+
+    ToolExecution:
+      type: object
+      properties:
+        tool_name:
+          type: string
+        input_data:
+          type: object
+        execution_context:
+          type: object
+          properties:
+            agent_id:
+              type: string
+              format: uuid
+            session_id:
+              type: string
+            reasoning_step_id:
+              type: string
+              format: uuid
+        metadata:
+          type: object
+      required:
+        - tool_name
+        - input_data
+
+    ToolExecutionResult:
+      type: object
+      properties:
+        call_id:
+          type: string
+          format: uuid
+        success:
+          type: boolean
+        output_data:
+          type: object
+        error_details:
+          $ref: '#/components/schemas/ToolError'
+        execution_metrics:
+          $ref: '#/components/schemas/ExecutionMetrics'
+        metadata:
+          type: object
+
+    ToolError:
+      type: object
+      properties:
+        error_type:
+          type: string
+          enum: [timeout, validation, connection, execution, permission]
+        message:
+          type: string
+        details:
+          type: object
+        retry_recommended:
+          type: boolean
+        suggested_action:
+          type: string
+
+    ExecutionMetrics:
+      type: object
+      properties:
+        start_time:
+          type: string
+          format: date-time
+        end_time:
+          type: string
+          format: date-time
+        duration_ms:
+          type: integer
+        memory_usage_mb:
+          type: number
+          format: float
+        network_calls:
+          type: integer
+        bytes_transferred:
+          type: integer
+
+    MCPServerStatus:
+      type: object
+      properties:
+        server_name:
+          type: string
+        status:
+          type: string
+          enum: [connected, disconnected, error, initializing]
+        capabilities:
+          type: array
+          items:
+            type: string
+        last_heartbeat:
+          type: string
+          format: date-time
+        connection_info:
+          type: object
+
+    ToolRegistry:
+      type: object
+      properties:
+        tools:
+          type: array
+          items:
+            $ref: '#/components/schemas/RegisteredTool'
+        total_count:
+          type: integer
+        categories:
+          type: object
+          additionalProperties:
+            type: integer
+
+    RegisteredTool:
+      allOf:
+        - $ref: '#/components/schemas/ToolDefinition'
+        - type: object
+          properties:
+            tool_id:
+              type: string
+              format: uuid
+            registration_time:
+              type: string
+              format: date-time
+            status:
+              type: string
+              enum: [active, inactive, error, testing]
+            usage_stats:
+              $ref: '#/components/schemas/ToolUsageStats'
+
+    ToolUsageStats:
+      type: object
+      properties:
+        total_calls:
+          type: integer
+        successful_calls:
+          type: integer
+        failed_calls:
+          type: integer
+        avg_duration_ms:
+          type: number
+          format: float
+        last_used:
+          type: string
+          format: date-time
+
+paths:
+  /tools/register:
+    post:
+      summary: Register a new tool
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ToolDefinition'
+      responses:
+        '201':
+          description: Tool registered successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tool_id:
+                    type: string
+                    format: uuid
+                  status:
+                    type: string
+        '400':
+          description: Invalid tool definition
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ToolError'
+
+  /tools/execute:
+    post:
+      summary: Execute a tool
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ToolExecution'
+      responses:
+        '200':
+          description: Tool executed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ToolExecutionResult'
+        '400':
+          description: Invalid execution request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ToolError'
+        '500':
+          description: Tool execution failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ToolError'
+
+  /tools/registry:
+    get:
+      summary: Get tool registry
+      parameters:
+        - name: category
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [active, inactive, error, testing]
+      responses:
+        '200':
+          description: Tool registry
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ToolRegistry'
+
+  /tools/{tool_id}/validate:
+    post:
+      summary: Validate tool configuration
+      parameters:
+        - name: tool_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                test_input:
+                  type: object
+      responses:
+        '200':
+          description: Tool validation successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  valid:
+                    type: boolean
+                  test_result:
+                    $ref: '#/components/schemas/ToolExecutionResult'
+        '400':
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ToolError'
+
+  /mcp/servers:
+    get:
+      summary: List MCP server connections
+      responses:
+        '200':
+          description: MCP servers
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  servers:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/MCPServerStatus'
+
+    post:
+      summary: Connect to MCP server
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MCPServerConfig'
+      responses:
+        '201':
+          description: MCP server connected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MCPServerStatus'
+        '400':
+          description: Invalid MCP configuration
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ToolError'
+
+  /mcp/servers/{server_name}/disconnect:
+    post:
+      summary: Disconnect from MCP server
+      parameters:
+        - name: server_name
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: MCP server disconnected
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    const: disconnected
