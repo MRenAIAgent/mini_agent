@@ -6,6 +6,10 @@ litellm>=1.0.0
 memgraph>=1.0.0
 redis>=4.0.0
 
+# Observability and Tracing (lightweight, local-only)
+rich>=13.0.0
+structlog>=23.0.0
+
 # Existing dependencies (preserving current functionality)
 asyncio
 pydantic>=2.0.0

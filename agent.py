@@ -20,6 +20,15 @@ try:
     from .memory import CoreMemoryManager, MemoryContext
     from .optimization import CoreOptimizer, OptimizationContext, TrainingExample
     from .tools import ToolManager, ToolCall, ToolResult
+    from .observability import (
+        configure_tracing,
+        trace_agent_execution,
+        trace_llm_call,
+        trace_tool_call,
+        get_logger,
+        get_console,
+        OBSERVABILITY_AVAILABLE
+    )
 except ImportError:
     # For standalone execution and testing
     from execution import ReactExecutor, ExecutionContext, ExecutionResult
@@ -28,6 +37,25 @@ except ImportError:
     from memory import CoreMemoryManager, MemoryContext
     from optimization import CoreOptimizer, OptimizationContext, TrainingExample
     from tools import ToolManager, ToolCall, ToolResult
+    try:
+        from observability import (
+            configure_tracing,
+            trace_agent_execution,
+            trace_llm_call,
+            trace_tool_call,
+            get_logger,
+            get_console,
+            OBSERVABILITY_AVAILABLE
+        )
+    except ImportError:
+        # Fallback if observability not available
+        def configure_tracing(*args, **kwargs): return None
+        def trace_agent_execution(*args, **kwargs): return lambda f: f
+        def trace_llm_call(*args, **kwargs): return lambda f: f
+        def trace_tool_call(*args, **kwargs): return lambda f: f
+        def get_logger(): return None
+        def get_console(): return None
+        OBSERVABILITY_AVAILABLE = False
 
 
 class CoreAgent:
@@ -48,7 +76,8 @@ class CoreAgent:
         enable_optimization: bool = False,
         session_id: Optional[str] = None,
         execution_pattern: ExecutionPatternType = ExecutionPatternType.REACT,
-        enable_pattern_selection: bool = True
+        enable_pattern_selection: bool = True,
+        enable_tracing: bool = True
     ):
         """
         Initialize the core agent.
@@ -63,6 +92,7 @@ class CoreAgent:
             session_id: Optional session ID for memory context
             execution_pattern: Default execution pattern to use
             enable_pattern_selection: Whether to enable automatic pattern selection
+            enable_tracing: Whether to enable Rich + StructLog tracing
         """
         # Validate LLM configuration (backward compatibility)
         if llm_function and llm_config:
@@ -91,6 +121,15 @@ class CoreAgent:
         self.system_prompt = system_prompt
         self.max_iterations = max_iterations
         self.session_id = session_id or str(uuid.uuid4())
+        self.enable_tracing = enable_tracing
+
+        # Configure tracing if enabled (only if not already configured)
+        if enable_tracing and OBSERVABILITY_AVAILABLE:
+            console = get_console()
+            if not console:  # Only configure if not already configured
+                configure_tracing()
+            if console:
+                console.print(f"[green]🤖 Agent initialized with tracing enabled[/green] [dim](session: {self.session_id[:8]})[/dim]")
 
         # Initialize components
         self.tool_manager = ToolManager()
@@ -156,6 +195,7 @@ class CoreAgent:
 
         await self.tool_manager.shutdown()
 
+    @trace_agent_execution("agent.run")
     async def run(
         self,
         user_input: str,
@@ -173,31 +213,59 @@ class CoreAgent:
         Returns:
             The agent's response
         """
+        print(f"\n🤖 [AGENT] Starting execution for input: '{user_input[:50]}{'...' if len(user_input) > 50 else ''}'")
+        print(f"🔧 [AGENT] Session ID: {self.session_id}")
+        print(f"📋 [AGENT] Execution pattern: {execution_pattern or 'auto-select'}")
+        print(f"🧠 [AGENT] Memory enabled: {self.memory_manager is not None}")
+        tools_count = 0
+        try:
+            if self.tool_manager:
+                if hasattr(self.tool_manager, 'tools'):
+                    tools_count = len(self.tool_manager.tools)
+                elif hasattr(self.tool_manager, '_tools'):
+                    tools_count = len(self.tool_manager._tools)
+                else:
+                    tools_count = "unknown"
+        except:
+            tools_count = "error"
+        print(f"🛠️ [AGENT] Tools available: {tools_count}")
+
         # Get enhanced system prompt with context
         enhanced_prompt = await self._build_enhanced_prompt(user_input, context)
+        print(f"📝 [AGENT] Enhanced prompt length: {len(enhanced_prompt)} characters")
 
         # Use pattern executor if pattern is specified or pattern selection is enabled
         if execution_pattern or self.enable_pattern_selection:
+            print(f"🔄 [AGENT] Using pattern executor...")
             result = await self.pattern_executor.execute(
                 user_input=user_input,
                 system_prompt=enhanced_prompt,
                 pattern=execution_pattern
             )
         else:
+            print(f"🔄 [AGENT] Using legacy ReAct executor...")
             # Fallback to legacy ReAct executor
             result = await self.executor.execute(
                 user_input=user_input,
                 system_prompt=enhanced_prompt
             )
 
+        print(f"✅ [AGENT] Execution completed - Success: {result.success}")
+        if result.success:
+            print(f"💬 [AGENT] Response preview: '{result.final_answer[:100]}{'...' if len(result.final_answer) > 100 else ''}'")
+        else:
+            print(f"❌ [AGENT] Error: {result.error_message}")
+
         # Store conversation in memory
         if self.memory_manager and result.success:
+            print(f"💾 [AGENT] Storing conversation in memory...")
             await self.memory_manager.add_conversation_turn(
                 session_id=self.session_id,
                 user_input=user_input,
                 agent_response=result.final_answer,
                 execution_result=result.to_dict()
             )
+            print(f"💾 [AGENT] Conversation stored successfully")
 
         # Return final answer or error
         if result.success:
@@ -547,6 +615,7 @@ class CoreAgent:
 
         return "\n".join(prompt_parts)
 
+    @trace_llm_call("litellm")
     async def _enhanced_llm_call(self, prompt: str) -> str:
         """Enhanced LLM call with context and error handling."""
         try:
@@ -590,6 +659,7 @@ class CoreAgent:
         except Exception as e:
             raise RuntimeError(f"LiteLLM call failed: {e}")
 
+    @trace_tool_call("tool_manager")
     async def _tool_call_wrapper(self, tool_name: str, tool_arguments: Dict[str, Any]) -> str:
         """Wrapper for tool calls through the tool manager."""
         try:

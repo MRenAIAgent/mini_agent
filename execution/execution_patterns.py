@@ -164,6 +164,7 @@ class ReActPattern(ExecutionPattern):
         context: ExecutionContext
     ) -> ExecutionResult:
         """Execute ReAct pattern."""
+        print(f"🧠 [REACT] Starting ReAct execution for: '{user_input[:30]}{'...' if len(user_input) > 30 else ''}'")
         self.clear_steps()
 
         # Build initial prompt
@@ -181,20 +182,26 @@ Final Answer: [your final answer to the user]
 Question: {user_input}"""
 
         max_iterations = context.max_iterations
+        print(f"🔄 [REACT] Max iterations: {max_iterations}")
 
         for iteration in range(max_iterations):
             self.current_iteration = iteration + 1
+            print(f"🔢 [REACT] Iteration {self.current_iteration}/{max_iterations}")
 
             # Get LLM response
+            print(f"🤔 [REACT] Calling LLM...")
             response = await llm_call(formatted_prompt)
+            print(f"📝 [REACT] LLM response: '{response[:80]}{'...' if len(response) > 80 else ''}'")
             self.add_step("llm_response", response)
 
             # Parse response
             parsed = self.parse_llm_response(response)
+            print(f"🔍 [REACT] Parsed response - Action: {parsed.get('action', 'None')}, Final Answer: {'Yes' if parsed.get('final_answer') else 'No'}")
 
             # Check if we have a final answer
             if not self.should_continue(parsed):
                 final_answer = parsed.get("final_answer", "I couldn't determine a final answer.")
+                print(f"✅ [REACT] Final answer found: '{final_answer[:50]}{'...' if len(final_answer) > 50 else ''}'")
                 return ExecutionResult(
                     final_answer=final_answer,
                     success=True,
@@ -207,6 +214,7 @@ Question: {user_input}"""
 
             # Execute action if present
             if "action" in parsed and "action_input" in parsed:
+                print(f"⚡ [REACT] Executing action: {parsed['action']} with input: {parsed.get('action_input', {})}")
                 try:
                     # Parse action input
                     import json
@@ -392,9 +400,11 @@ class PlanAndExecutePattern(ExecutionPattern):
         context: ExecutionContext
     ) -> ExecutionResult:
         """Execute Plan and Execute pattern."""
+        print(f"📋 [PLAN] Starting Plan and Execute for: '{user_input[:30]}{'...' if len(user_input) > 30 else ''}'")
         self.clear_steps()
 
         # Phase 1: Planning
+        print(f"🎯 [PLAN] Phase 1: Creating plan...")
         planning_prompt = f"""{self.get_system_prompt()}
 
 Create a detailed plan to answer this question: {user_input}
@@ -407,9 +417,11 @@ Step 2: [description]
 Plan:"""
 
         plan_response = await llm_call(planning_prompt)
+        print(f"📝 [PLAN] Plan created: '{plan_response[:60]}{'...' if len(plan_response) > 60 else ''}'")
         self.add_step("plan", plan_response)
 
         # Phase 2: Execution
+        print(f"⚡ [PLAN] Phase 2: Executing plan...")
         execution_prompt = f"""Now execute the plan step by step:
 
 Plan:
@@ -420,6 +432,7 @@ Question: {user_input}
 Execute each step and provide your reasoning:"""
 
         execution_response = await llm_call(execution_prompt)
+        print(f"✅ [PLAN] Execution completed: '{execution_response[:60]}{'...' if len(execution_response) > 60 else ''}'")
         self.add_step("execution", execution_response)
 
         return ExecutionResult(
@@ -607,6 +620,7 @@ class ExecutionPatternFactory:
         ExecutionPatternType.REACT: ReActPattern,
         ExecutionPatternType.CHAIN_OF_THOUGHT: ChainOfThoughtPattern,
         ExecutionPatternType.PLAN_AND_EXECUTE: PlanAndExecutePattern,
+        ExecutionPatternType.PLANNING: PlanAndExecutePattern,  # Alias for plan and execute
         ExecutionPatternType.REFLECTION: ReflectionPattern,
         ExecutionPatternType.SOCRATIC: SocraticPattern,
     }

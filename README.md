@@ -11,6 +11,32 @@ The Core Agent System is designed to be minimal yet powerful, providing a clean 
 3. **Prompt Optimization** - Adaptive improvement through multiple optimization strategies
 4. **Tool/MCP Integration** - External capabilities through tools and Model Context Protocol
 
+## 🎯 NEW: Rich Tracing & Debugging
+
+**Beautiful, local-only agent tracing with no external services required!**
+
+```python
+from agent import CoreAgent
+
+# Create agent with Rich + StructLog tracing enabled
+agent = CoreAgent(
+    llm_function=your_llm_function,
+    system_prompt="You are a helpful AI assistant",
+    enable_tracing=True  # 🚀 Beautiful console tracing!
+)
+
+# Watch beautiful colored output as your agent runs
+response = await agent.run("What's the weather like?")
+
+# See clean, hierarchical tracing:
+#   🚀 agent.run [self_type=CoreAgent]
+#     🚀 llm.call [prompt=571chars]
+#     ✅ llm.call (104ms)
+#   ✅ agent.run (108ms)
+```
+
+**Run the demo:** `python test_tracing_demo.py`
+
 ## Quick Start
 
 ```python
@@ -55,6 +81,38 @@ async def main():
         await agent.stop()
 
 asyncio.run(main())
+```
+
+## 🔍 Rich Tracing Features
+
+### What Gets Traced
+- **🚀 Agent execution** - Run methods, reasoning steps, responses
+- **🧠 LLM calls** - Prompts, responses, timing, context
+- **🛠️ Tool calls** - Arguments, results, success/failure
+- **❌ Errors** - Full stack traces with context
+- **📊 Performance** - Execution time, span correlation
+
+### Clean Tracing Output
+```bash
+  🚀 agent.run [self_type=CoreAgent]
+    🚀 llm.call [model=gpt-4, prompt=571chars]
+    ✅ llm.call (104ms)
+    🚀 tool.calculator [operation=add, a=15, b=23]
+    ✅ tool.calculator (23ms)
+  ✅ agent.run (127ms)
+```
+
+### Custom Decorators
+```python
+from observability import trace_agent_execution, trace_llm_call, trace_tool_call
+
+@trace_agent_execution("my.custom.step")
+async def my_processing_step(data):
+    return processed_data
+
+@trace_llm_call("gpt-4")
+async def call_llm(prompt):
+    return await llm_call(prompt)
 ```
 
 ## Core Components

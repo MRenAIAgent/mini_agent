@@ -81,6 +81,7 @@ class PatternExecutor:
         """
         # Select execution pattern
         selected_pattern = pattern or self._select_pattern(user_input, pattern_params)
+        print(f"🎯 [EXECUTOR] Selected execution pattern: {selected_pattern.value}")
 
         # Create execution context
         if context is None:
@@ -97,8 +98,10 @@ class PatternExecutor:
 
         # Create pattern instance
         pattern_instance = ExecutionPatternFactory.create_pattern(selected_pattern)
+        print(f"🏗️ [EXECUTOR] Created pattern instance: {pattern_instance.__class__.__name__}")
 
         try:
+            print(f"⏱️ [EXECUTOR] Starting execution (timeout: {self.timeout_seconds}s)")
             # Execute with timeout
             result = await asyncio.wait_for(
                 pattern_instance.execute(
@@ -109,6 +112,7 @@ class PatternExecutor:
                 ),
                 timeout=self.timeout_seconds
             )
+            print(f"🎉 [EXECUTOR] Pattern execution completed successfully")
 
             # Update statistics
             self._update_pattern_stats(selected_pattern, True)

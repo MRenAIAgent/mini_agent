@@ -336,6 +336,20 @@ class CoreMemoryManager:
         """
         return await self.context_manager.clear_context(session_id)
 
+    async def get_all_memories(self) -> List[MemoryEntry]:
+        """
+        Get all stored memories.
+
+        Returns:
+            List of all memory entries
+        """
+        try:
+            # Use list_recent with a large limit to get all memories
+            return await self.memory_store.list_recent(limit=10000)
+        except Exception as e:
+            print(f"Error getting all memories: {e}")
+            return []
+
     async def get_memory_stats(self) -> Dict[str, Any]:
         """
         Get comprehensive memory system statistics.
@@ -416,7 +430,7 @@ class CoreMemoryManager:
         except Exception as e:
             raise RuntimeError(f"Failed to switch backend: {e}")
 
-    async def store_memory(self, content: str, importance: float = 0.5,
+    async def store_memory_with_backend_support(self, content: str, importance: float = 0.5,
                           metadata: Optional[Dict[str, Any]] = None) -> str:
         """
         Store memory with backend support.
@@ -478,7 +492,7 @@ class CoreMemoryManager:
                 }
             return None
 
-    async def search_memory(self, query: str, limit: int = 10) -> List[Dict[str, Any]]:
+    async def search_memory_backend_enabled(self, query: str, limit: int = 10) -> List[Dict[str, Any]]:
         """
         Search memories with backend support.
 
@@ -492,9 +506,10 @@ class CoreMemoryManager:
         if self._backend_enabled and self.current_backend:
             return await self.current_backend.search_memory(query, limit)
         else:
-            # Fallback to original search
+            # Fallback to original search - get all memories first
+            all_memories = await self.memory_store.list_recent(limit=10000)
             results = await self.retrieval_strategy.retrieve(
-                query, self.memory_store, limit
+                query, all_memories, limit
             )
             return [
                 {
