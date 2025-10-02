@@ -5,13 +5,12 @@ from datetime import datetime
 import asyncio
 from dataclasses import dataclass, field
 
-from .types import EpisodicMemoryManager
-from .types import SemanticMemoryManager
-from .types import UserProfileMemoryManager
-from .types import InteractionMemoryManager, InteractionType
-from .types import LearningGraphMemory, ConceptStatus
-from .coordinators import EnhancedMemoryCoordinator
-from .coordinators import MemoryCoordinator, LearningAnalytics
+from .episodic_memory import EpisodicMemoryManager
+from .semantic_memory import SemanticMemoryManager
+from .user_profile_memory import UserProfileMemoryManager
+from .interaction_memory import InteractionMemoryManager, InteractionType
+from .learning_graph_memory import LearningGraphMemory, ConceptStatus
+from .coordinator import EnhancedMemoryCoordinator
 
 
 @dataclass
@@ -118,7 +117,7 @@ class LearningMemorySystem(
             Comprehensive response using all memory systems
         """
         # Create interaction record
-        from .types import InteractionRecord
+        from .interaction_memory import InteractionRecord
 
         interaction = InteractionRecord(
             user_id=user_id,
@@ -299,11 +298,6 @@ class LearningMemorySystem(
                 consolidation_success=False
             )
 
-    # Alias for backward compatibility with test expectations
-    async def consolidate_learning_session(self, *args, **kwargs):
-        """Alias for complete_learning_session."""
-        return await self.complete_learning_session(*args, **kwargs)
-
     async def get_comprehensive_learning_insights(
         self,
         user_id: str,
@@ -438,3 +432,196 @@ class LearningMemorySystem(
         return concepts
 
 
+class MemoryCoordinator:
+    """Coordinates between different memory types."""
+
+    def __init__(self, learning_system: LearningMemorySystem):
+        self.system = learning_system
+
+    async def generate_contextualized_response(
+        self,
+        interaction: 'InteractionRecord',
+        episodic_context: List[Any],
+        semantic_context: List[Any],
+        user_profile: Dict[str, Any],
+        conversation_context: Dict[str, Any],
+        learning_recommendations: List[Dict[str, Any]]
+    ) -> Dict[str, Any]:
+        """Generate response using insights from all memory types."""
+
+        # Analyze context from each memory type
+        episodic_insights = self._analyze_episodic_context(episodic_context, interaction)
+        semantic_insights = self._analyze_semantic_context(semantic_context, interaction)
+        profile_insights = self._analyze_profile_context(user_profile, interaction)
+
+        # Generate integrated response
+        response_text = await self._generate_integrated_response(
+            interaction, episodic_insights, semantic_insights,
+            profile_insights, learning_recommendations
+        )
+
+        return {
+            'text': response_text,
+            'episodic_insights': episodic_insights,
+            'semantic_knowledge_used': semantic_insights,
+            'personalization_applied': profile_insights,
+            'confidence': 0.8  # Would be calculated based on context quality
+        }
+
+    def _analyze_episodic_context(self, episodes: List[Any], interaction: 'InteractionRecord') -> List[str]:
+        """Analyze episodic context for insights."""
+        insights = []
+        if episodes:
+            insights.append(f"Found {len(episodes)} similar recent learning episodes")
+            # Add more sophisticated analysis
+        return insights
+
+    def _analyze_semantic_context(self, knowledge: List[Any], interaction: 'InteractionRecord') -> List[str]:
+        """Analyze semantic context for insights."""
+        insights = []
+        if knowledge:
+            insights.append(f"Retrieved {len(knowledge)} relevant knowledge items")
+            # Add more sophisticated analysis
+        return insights
+
+    def _analyze_profile_context(self, profile: Dict[str, Any], interaction: 'InteractionRecord') -> List[str]:
+        """Analyze profile context for insights."""
+        insights = []
+        learning_style = profile.get('learning_style')
+        if learning_style:
+            insights.append(f"Applied personalization based on learning style")
+        return insights
+
+    async def _generate_integrated_response(
+        self,
+        interaction: 'InteractionRecord',
+        episodic_insights: List[str],
+        semantic_insights: List[str],
+        profile_insights: List[str],
+        learning_recommendations: List[Dict[str, Any]]
+    ) -> str:
+        """Generate integrated response text."""
+        # This would use sophisticated NLP/LLM integration in practice
+        # For now, simple template-based response
+
+        response = f"Based on your question about {interaction.user_input[:50]}..., "
+
+        if semantic_insights:
+            response += "I can help you understand this concept. "
+
+        if episodic_insights:
+            response += "Looking at your recent learning, "
+
+        if learning_recommendations:
+            response += f"I recommend focusing on {learning_recommendations[0].get('concept_id', 'the next concept')} next."
+
+        return response
+
+    async def predict_success(
+        self,
+        user_id: str,
+        target_concept: str,
+        readiness: Dict[str, Any],
+        user_profile: Dict[str, Any],
+        similar_episodes: List[Any],
+        session_type: str
+    ) -> Dict[str, Any]:
+        """Predict learning success based on all memory types."""
+
+        # Base prediction on readiness
+        base_prediction = readiness.get('readiness_score', 0.5)
+
+        # Adjust based on profile
+        profile_factor = 1.0
+        if user_profile.get('preferences', {}).get('session_success_pattern'):
+            profile_factor = 1.1  # Slight boost for known successful patterns
+
+        # Adjust based on similar episodes
+        episode_factor = 1.0
+        if similar_episodes:
+            avg_success = sum(ep.metadata.get('context', {}).get('was_successful', False)
+                            for ep in similar_episodes) / len(similar_episodes)
+            episode_factor = 0.8 + (avg_success * 0.4)  # Scale between 0.8-1.2
+
+        final_prediction = min(1.0, base_prediction * profile_factor * episode_factor)
+
+        return {
+            'success_probability': final_prediction,
+            'confidence': 0.7,
+            'factors': {
+                'readiness': readiness.get('readiness_score', 0.5),
+                'profile_match': profile_factor,
+                'historical_performance': episode_factor
+            },
+            'recommendations': [
+                "Start with prerequisite review" if readiness.get('readiness_score', 0) < 0.7 else "Ready to proceed",
+                f"Estimated session time: {30 + (1-final_prediction) * 30:.0f} minutes"
+            ]
+        }
+
+
+class LearningAnalytics:
+    """Provides analytics across all memory types."""
+
+    def __init__(self, learning_system: LearningMemorySystem):
+        self.system = learning_system
+
+    async def generate_learning_trajectory(
+        self,
+        user_id: str,
+        episodic_patterns: Dict[str, Any],
+        semantic_gaps: List[Dict[str, Any]],
+        profile_insights: Dict[str, Any],
+        interaction_patterns: List[Dict[str, Any]],
+        learning_graph_analytics: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Generate overall learning trajectory analysis."""
+
+        return {
+            'learning_velocity': learning_graph_analytics.get('learning_velocity', 0),
+            'knowledge_growth': len(semantic_gaps),
+            'engagement_trend': episodic_patterns.get('daily_activity', {}),
+            'preferred_learning_modes': profile_insights.get('preferences', {}),
+            'communication_effectiveness': len(interaction_patterns),
+            'next_milestones': learning_graph_analytics.get('breakthrough_concepts', []),
+            'trajectory_timestamp': datetime.now().isoformat()
+        }
+
+    async def generate_learning_plan(
+        self,
+        user_id: str,
+        learning_goal: str,
+        profile: Dict[str, Any],
+        analytics: Dict[str, Any],
+        next_concepts: List[Dict[str, Any]],
+        timeline_days: int
+    ) -> Dict[str, Any]:
+        """Generate comprehensive learning plan."""
+
+        # Calculate concepts per week based on learning velocity
+        velocity = analytics.get('learning_velocity', 1.0)  # concepts per hour
+        concepts_per_week = max(1, int(velocity * 10))  # Assume 10 hours per week
+
+        weeks = timeline_days // 7
+        total_concepts = min(len(next_concepts), concepts_per_week * weeks)
+
+        return {
+            'goal': learning_goal,
+            'timeline_days': timeline_days,
+            'recommended_concepts': next_concepts[:total_concepts],
+            'weekly_schedule': {
+                'concepts_per_week': concepts_per_week,
+                'estimated_hours_per_week': 10,
+                'recommended_session_length': 60  # minutes
+            },
+            'personalization': {
+                'preferred_difficulty': profile.get('preferences', {}).get('difficulty_preference', 'medium'),
+                'learning_style_adaptations': profile.get('learning_style', {}),
+                'motivational_factors': profile.get('active_goals', [])
+            },
+            'milestones': [
+                {'week': w+1, 'concepts': next_concepts[w*concepts_per_week:(w+1)*concepts_per_week]}
+                for w in range(min(weeks, len(next_concepts)//concepts_per_week))
+            ],
+            'plan_generated_at': datetime.now().isoformat()
+        }
