@@ -29,6 +29,14 @@ try:
         get_console,
         OBSERVABILITY_AVAILABLE
     )
+    from .sidecars import (
+        Sidecar,
+        SidecarExecutor,
+        SidecarRegistry,
+        MemoryStoreSidecar,
+        AnalyticsSidecar,
+        LoggingSidecar,
+    )
 except ImportError:
     # For standalone execution and testing
     from execution import ReactExecutor, ExecutionContext, ExecutionResult
@@ -57,6 +65,24 @@ except ImportError:
         def get_console(): return None
         OBSERVABILITY_AVAILABLE = False
 
+    try:
+        from sidecars import (
+            Sidecar,
+            SidecarExecutor,
+            SidecarRegistry,
+            MemoryStoreSidecar,
+            AnalyticsSidecar,
+            LoggingSidecar,
+        )
+    except ImportError:
+        # Fallback if sidecars not available
+        Sidecar = None
+        SidecarExecutor = None
+        SidecarRegistry = None
+        MemoryStoreSidecar = None
+        AnalyticsSidecar = None
+        LoggingSidecar = None
+
 
 class CoreAgent:
     """
@@ -77,7 +103,8 @@ class CoreAgent:
         session_id: Optional[str] = None,
         execution_pattern: ExecutionPatternType = ExecutionPatternType.REACT,
         enable_pattern_selection: bool = True,
-        enable_tracing: bool = True
+        enable_tracing: bool = True,
+        enable_sidecars: bool = True
     ):
         """
         Initialize the core agent.
@@ -93,6 +120,7 @@ class CoreAgent:
             execution_pattern: Default execution pattern to use
             enable_pattern_selection: Whether to enable automatic pattern selection
             enable_tracing: Whether to enable Rich + StructLog tracing
+            enable_sidecars: Whether to enable sidecar system for background tasks
         """
         # Validate LLM configuration (backward compatibility)
         if llm_function and llm_config:
@@ -173,6 +201,19 @@ class CoreAgent:
         self.current_context: Optional[ExecutionContext] = None
         self.optimization_history: List[Dict[str, Any]] = []
 
+        # Initialize sidecar system
+        self.enable_sidecars = enable_sidecars
+        if enable_sidecars and SidecarExecutor is not None:
+            self.sidecar_registry = SidecarRegistry()
+            self.sidecar_executor = SidecarExecutor(
+                max_concurrent=50,
+                default_timeout=60
+            )
+            self._register_default_sidecars(enable_memory)
+        else:
+            self.sidecar_registry = None
+            self.sidecar_executor = None
+
     @property
     def tools(self):
         """Backward compatibility property for accessing tools."""
@@ -190,84 +231,138 @@ class CoreAgent:
 
     async def stop(self) -> None:
         """Stop the agent and clean up resources."""
-        if self.memory_manager:
+        # Wait for sidecars to complete (with timeout)
+        if self.sidecar_executor is not None:
+            await self.sidecar_executor.wait_all(timeout=5.0)
+
+        if self.memory_manager is not None:
             await self.memory_manager.stop()
 
         await self.tool_manager.shutdown()
 
-    @trace_agent_execution("agent.run")
-    async def run(
-        self,
-        user_input: str,
-        context: Optional[Dict[str, Any]] = None,
-        execution_pattern: Optional[ExecutionPatternType] = None
-    ) -> str:
+    def _register_default_sidecars(self, enable_memory: bool):
         """
-        Run the agent on a user input.
+        Register default sidecars that run automatically.
 
         Args:
-            user_input: The user's question or request
-            context: Optional additional context
-            execution_pattern: Optional specific pattern to use
+            enable_memory: Whether memory is enabled (to register memory sidecar)
+        """
+        if self.sidecar_registry is None:
+            return
+
+        # Register memory storage sidecar if memory is enabled
+        if enable_memory and self.memory_manager and MemoryStoreSidecar is not None:
+            memory_sidecar = MemoryStoreSidecar(self.memory_manager)
+            self.sidecar_registry.register(memory_sidecar)
+
+        # Register analytics sidecar (always track)
+        if AnalyticsSidecar is not None:
+            analytics_sidecar = AnalyticsSidecar()
+            self.sidecar_registry.register(analytics_sidecar)
+
+    def register_sidecar(self, sidecar: 'Sidecar'):
+        """
+        Register a custom sidecar.
+
+        Sidecars run automatically in the background after each agent execution,
+        without blocking the response to the user.
+
+        Args:
+            sidecar: Sidecar instance to register
+
+        Example:
+            from sidecars import LoggingSidecar
+
+            log_sidecar = LoggingSidecar(log_file="agent_logs.jsonl")
+            agent.register_sidecar(log_sidecar)
+        """
+        if self.sidecar_registry is None:
+            raise RuntimeError("Sidecars not enabled. Set enable_sidecars=True when creating agent.")
+
+        self.sidecar_registry.register(sidecar)
+
+    def unregister_sidecar(self, name: str):
+        """
+        Remove a sidecar from registry.
+
+        Args:
+            name: Name of the sidecar to remove
+        """
+        if self.sidecar_registry is not None:
+            self.sidecar_registry.unregister(name)
+
+    def get_sidecars(self) -> List['Sidecar']:
+        """Get all registered sidecars."""
+        if self.sidecar_registry is not None:
+            return self.sidecar_registry.get_all()
+        return []
+
+    def get_sidecar_stats(self) -> Dict[str, Any]:
+        """Get sidecar execution statistics."""
+        if self.sidecar_executor is not None:
+            return self.sidecar_executor.get_stats()
+        return {}
+
+    def _trigger_sidecars(
+        self,
+        user_input: str,
+        response: str,
+        result: 'ExecutionResult',
+        session_id: str
+    ):
+        """
+        Trigger all registered sidecars in background.
+
+        This method returns immediately without waiting for sidecars to complete.
+        Sidecars run concurrently in the background.
+
+        Args:
+            user_input: User's input
+            response: Agent's response
+            result: Execution result
+            session_id: Session ID for this execution (thread-safe)
+        """
+        if not self.enable_sidecars or self.sidecar_executor is None:
+            return
+
+        # Get enabled sidecars
+        sidecars = self.sidecar_registry.get_enabled() if self.sidecar_registry is not None else []
+
+        if not sidecars:
+            return
+
+        # Build context for sidecars (using provided session_id, not self.session_id)
+        context = {
+            "session_id": session_id,  # ✅ Thread-safe: use parameter, not self
+            "user_input": user_input,
+            "response": response,
+            "execution_result": result.to_dict(),
+            "timestamp": datetime.now(),
+            "agent_state": self._get_agent_state()
+        }
+
+        # Execute all sidecars in background (non-blocking!)
+        self.sidecar_executor.execute_all(sidecars, context)
+
+    def _get_agent_state(self) -> Dict[str, Any]:
+        """Get current agent state snapshot for sidecar context."""
+        return {
+            "tools_available": len(self.tool_manager.list_available_tools()) if self.tool_manager else 0,
+            "memory_enabled": self.memory_manager is not None,
+            "max_iterations": self.max_iterations,
+            "execution_pattern": self.execution_pattern.value if hasattr(self.execution_pattern, 'value') else str(self.execution_pattern)
+        }
+
+    def _get_response_from_result(self, result: 'ExecutionResult') -> str:
+        """
+        Extract the final response from execution result.
+
+        Args:
+            result: Execution result
 
         Returns:
-            The agent's response
+            Final response string
         """
-        print(f"\n🤖 [AGENT] Starting execution for input: '{user_input[:50]}{'...' if len(user_input) > 50 else ''}'")
-        print(f"🔧 [AGENT] Session ID: {self.session_id}")
-        print(f"📋 [AGENT] Execution pattern: {execution_pattern or 'auto-select'}")
-        print(f"🧠 [AGENT] Memory enabled: {self.memory_manager is not None}")
-        tools_count = 0
-        try:
-            if self.tool_manager:
-                if hasattr(self.tool_manager, 'tools'):
-                    tools_count = len(self.tool_manager.tools)
-                elif hasattr(self.tool_manager, '_tools'):
-                    tools_count = len(self.tool_manager._tools)
-                else:
-                    tools_count = "unknown"
-        except:
-            tools_count = "error"
-        print(f"🛠️ [AGENT] Tools available: {tools_count}")
-
-        # Get enhanced system prompt with context
-        enhanced_prompt = await self._build_enhanced_prompt(user_input, context)
-        print(f"📝 [AGENT] Enhanced prompt length: {len(enhanced_prompt)} characters")
-
-        # Use pattern executor if pattern is specified or pattern selection is enabled
-        if execution_pattern or self.enable_pattern_selection:
-            print(f"🔄 [AGENT] Using pattern executor...")
-            result = await self.pattern_executor.execute(
-                user_input=user_input,
-                system_prompt=enhanced_prompt,
-                pattern=execution_pattern
-            )
-        else:
-            print(f"🔄 [AGENT] Using legacy ReAct executor...")
-            # Fallback to legacy ReAct executor
-            result = await self.executor.execute(
-                user_input=user_input,
-                system_prompt=enhanced_prompt
-            )
-
-        print(f"✅ [AGENT] Execution completed - Success: {result.success}")
-        if result.success:
-            print(f"💬 [AGENT] Response preview: '{result.final_answer[:100]}{'...' if len(result.final_answer) > 100 else ''}'")
-        else:
-            print(f"❌ [AGENT] Error: {result.error_message}")
-
-        # Store conversation in memory
-        if self.memory_manager and result.success:
-            print(f"💾 [AGENT] Storing conversation in memory...")
-            await self.memory_manager.add_conversation_turn(
-                session_id=self.session_id,
-                user_input=user_input,
-                agent_response=result.final_answer,
-                execution_result=result.to_dict()
-            )
-            print(f"💾 [AGENT] Conversation stored successfully")
-
-        # Return final answer or error
         if result.success:
             # Check for empty or None responses first
             if not result.final_answer or result.final_answer.strip() == "":
@@ -299,6 +394,89 @@ class CoreAgent:
             return result.final_answer
         else:
             return f"I encountered an error: {result.error_message}"
+
+    @trace_agent_execution("agent.run")
+    async def run(
+        self,
+        user_input: str,
+        context: Optional[Dict[str, Any]] = None,
+        execution_pattern: Optional[ExecutionPatternType] = None,
+        session_id: Optional[str] = None
+    ) -> str:
+        """
+        Run the agent on a user input.
+
+        Args:
+            user_input: The user's question or request
+            context: Optional additional context
+            execution_pattern: Optional specific pattern to use
+            session_id: Optional session ID for this request (thread-safe for persistent agents)
+
+        Returns:
+            The agent's response
+        """
+        # Use provided session_id or fall back to instance session_id (thread-safe)
+        effective_session = session_id or self.session_id
+
+        print(f"\n🤖 [AGENT] Starting execution for input: '{user_input[:50]}{'...' if len(user_input) > 50 else ''}'")
+        print(f"🔧 [AGENT] Session ID: {effective_session}")
+        print(f"📋 [AGENT] Execution pattern: {execution_pattern or 'auto-select'}")
+        print(f"🧠 [AGENT] Memory enabled: {self.memory_manager is not None}")
+        tools_count = 0
+        try:
+            if self.tool_manager:
+                if hasattr(self.tool_manager, 'tools'):
+                    tools_count = len(self.tool_manager.tools)
+                elif hasattr(self.tool_manager, '_tools'):
+                    tools_count = len(self.tool_manager._tools)
+                else:
+                    tools_count = "unknown"
+        except:
+            tools_count = "error"
+        print(f"🛠️ [AGENT] Tools available: {tools_count}")
+
+        # Get enhanced system prompt with context (using effective session)
+        enhanced_prompt = await self._build_enhanced_prompt(user_input, context, effective_session)
+        print(f"📝 [AGENT] Enhanced prompt length: {len(enhanced_prompt)} characters")
+
+        # Use pattern executor if pattern is specified or pattern selection is enabled
+        if execution_pattern or self.enable_pattern_selection:
+            print(f"🔄 [AGENT] Using pattern executor...")
+            result = await self.pattern_executor.execute(
+                user_input=user_input,
+                system_prompt=enhanced_prompt,
+                pattern=execution_pattern
+            )
+        else:
+            print(f"🔄 [AGENT] Using legacy ReAct executor...")
+            # Fallback to legacy ReAct executor
+            result = await self.executor.execute(
+                user_input=user_input,
+                system_prompt=enhanced_prompt
+            )
+
+        print(f"✅ [AGENT] Execution completed - Success: {result.success}")
+        if result.success:
+            print(f"💬 [AGENT] Response preview: '{result.final_answer[:100]}{'...' if len(result.final_answer) > 100 else ''}'")
+        else:
+            print(f"❌ [AGENT] Error: {result.error_message}")
+
+        # Get response before triggering sidecars
+        response = self._get_response_from_result(result)
+
+        # Trigger sidecars in background (NON-BLOCKING!)
+        # Sidecars handle memory storage, analytics, logging, etc.
+        if result.success:
+            self._trigger_sidecars(
+                user_input=user_input,
+                response=response,
+                result=result,
+                session_id=effective_session  # Pass effective session to sidecars
+            )
+            print(f"🚀 [AGENT] Background sidecars triggered")
+
+        # Return response (sidecars are running in background!)
+        return response
 
     async def run_stream(
         self,
@@ -550,9 +728,20 @@ class CoreAgent:
     async def _build_enhanced_prompt(
         self,
         user_input: str,
-        context: Optional[Dict[str, Any]] = None
+        context: Optional[Dict[str, Any]] = None,
+        session_id: Optional[str] = None
     ) -> str:
-        """Build enhanced system prompt with context and memory."""
+        """
+        Build enhanced system prompt with context and memory.
+
+        Args:
+            user_input: User's input
+            context: Optional additional context
+            session_id: Session ID for memory retrieval (thread-safe)
+        """
+        # Use provided session_id or fall back to instance session_id (thread-safe)
+        effective_session = session_id or self.session_id
+
         prompt_parts = [self.system_prompt]
 
         # Add tool information
@@ -564,10 +753,10 @@ class CoreAgent:
 
             prompt_parts.append(f"\nYou have access to these tools:\n" + "\n".join(tool_descriptions))
 
-        # Add memory context
+        # Add memory context (using effective session)
         if self.memory_manager:
             relevant_context = await self.memory_manager.get_relevant_context(
-                session_id=self.session_id,
+                session_id=effective_session,  # ✅ Thread-safe: use parameter
                 query=user_input
             )
 
