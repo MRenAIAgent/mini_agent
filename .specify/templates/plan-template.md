@@ -77,6 +77,30 @@
 - [ ] Clear error messages designed
 - [ ] Working examples included in documentation
 
+### Async-First Architecture (Principle VI)
+- [ ] All I/O operations designed as async (LLM calls, DB access, tools)
+- [ ] Agent lifecycle methods (start, run, stop) are async
+- [ ] Support for concurrent sessions without blocking
+- [ ] Synchronous wrappers only for convenience, not primary interface
+
+### Memory System Design (Principle VII)
+- [ ] Pluggable backend support (in-memory, Redis, Memgraph)
+- [ ] Multiple memory types supported (episodic, semantic, user profile, interaction)
+- [ ] Multi-factor retrieval ranking (similarity + importance + recency)
+- [ ] Automatic memory cleanup and lifecycle management
+
+### Observability & Tracing (Principle VIII)
+- [ ] Local tracing without external dependencies
+- [ ] Rich console output for development debugging
+- [ ] Automatic metrics collection (timing, tokens, iterations)
+- [ ] Full error context for debugging
+
+### Sidecar Pattern for Non-Blocking Operations (Principle IX)
+- [ ] Background operations use sidecars (memory storage, analytics, logging)
+- [ ] Configurable timeouts and error handling for sidecars
+- [ ] Response latency prioritizes user experience
+- [ ] Sidecar execution is non-blocking and concurrent
+
 ## Project Structure
 
 ### Documentation (this feature)

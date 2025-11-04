@@ -125,3 +125,65 @@ Task: "Integration test auth in tests/integration/test_auth.py"
 - [ ] Parallel tasks truly independent
 - [ ] Each task specifies exact file path
 - [ ] No task modifies same file as another [P] task
+
+## Agent Framework Specific Task Patterns
+*Use when building AI agent features (execution, memory, tools, optimization)*
+
+### Setup Tasks for Agent Components
+- Mock LLM provider setup for testing (Constitution Principle III)
+- In-memory backend initialization (fast tests)
+- Async test fixtures configuration (Constitution Principle VI)
+
+### Testing Patterns for Agents
+- **Mock LLM responses**: Create deterministic test cases
+- **Memory backend tests**: Test with in-memory, verify pluggability (Constitution Principle VII)
+- **Execution pattern tests**: Test ReAct, Chain of Thought, Plan & Execute patterns
+- **Sidecar timeout tests**: Verify non-blocking execution and timeout handling (Constitution Principle IX)
+- **Tool execution tests**: Mock external tools, test error handling
+- **Performance benchmarks**: Agent execution time, memory retrieval speed (Constitution Principle IV)
+
+### Core Implementation for Agent Features
+- **Async operations**: All LLM calls, DB access, tool execution async (Constitution Principle VI)
+- **Memory operations**: Support similarity + importance + recency ranking (Constitution Principle VII)
+- **Tracing hooks**: Add @trace_agent_execution decorators (Constitution Principle VIII)
+- **Sidecar registration**: Background ops moved to sidecars (Constitution Principle IX)
+- **Provider abstraction**: LLM/memory/tool providers pluggable
+
+### Integration Tasks for Agent Systems
+- **Memory backend integration**: Connect Redis/Memgraph with fallback
+- **LLM provider integration**: Support OpenAI, Anthropic, local models
+- **MCP server integration**: Tool protocol implementation
+- **Observability setup**: Rich console tracing configuration
+
+### Polish Tasks for Agent Components
+- **Coverage verification**: 90%+ with agent-specific mocking patterns
+- **Performance validation**: Sub-second simple queries, benchmark complex reasoning
+- **Sidecar metrics**: Verify performance improvements from background execution
+- **Example agent creation**: Working examples in docs/ with real use cases
+- **Error message clarity**: Test failure modes, ensure actionable errors
+
+### Example Agent Feature Tasks
+```
+## Setup
+- [ ] T001 Create mock LLM provider for deterministic testing
+- [ ] T002 [P] Configure async test fixtures with pytest-asyncio
+- [ ] T003 [P] Initialize in-memory backend for fast tests
+
+## Tests First (TDD)
+- [ ] T004 [P] Test ReAct execution pattern in tests/unit/test_react_pattern.py
+- [ ] T005 [P] Test memory retrieval ranking in tests/unit/test_memory_retrieval.py
+- [ ] T006 [P] Test sidecar timeout handling in tests/unit/test_sidecar_timeout.py
+
+## Core Implementation
+- [ ] T007 Implement async execution pattern base class
+- [ ] T008 [P] Add @trace_agent_execution decorators
+- [ ] T009 Memory ranking: similarity + importance + recency
+
+## Integration
+- [ ] T010 Connect memory backend with fallback logic
+- [ ] T011 Register memory storage sidecar
+
+## Polish
+- [ ] T012 [P] Performance benchmark: execution under 1s
+- [ ] T013 [P] Example: Create working agent with memory and tools
+```
