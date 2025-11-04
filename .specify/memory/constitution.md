@@ -1,19 +1,21 @@
 <!--
 Sync Impact Report:
-- Version change: New constitution (no previous version) → 1.0.0
-- Added sections: Core Principles, Architecture Requirements, Development Standards, Governance
-- New principles:
-  1. Simplified Design
-  2. Python Design Principles
-  3. Test-Driven Development (NON-NEGOTIABLE)
-  4. Performance & Accuracy
-  5. Ease of Use
+- Version change: 1.0.0 → 1.1.0 (MINOR: New principles added)
+- Modified sections: Added "Agent Framework Principles" section
+- New principles added:
+  6. Async-First Architecture
+  7. Memory System Design
+  8. Observability & Tracing
+  9. Sidecar Pattern for Non-Blocking Operations
+- Modified sections:
+  - Testing Requirements: Added agent-specific testing patterns
 - Templates requiring updates:
-  ✅ plan-template.md - Updated Constitution Check section with specific principle checkboxes
-  ✅ tasks-template.md - Added constitutional compliance references for TDD, linting, performance targets
-  ✅ spec-template.md - No changes needed (business-focused, no technical implementation details)
-  ✅ agent-file-template.md - No changes needed (auto-generated structure template)
-- Follow-up TODOs: None - All templates aligned with constitution v1.0.0
+  ✅ plan-template.md - Constitution Check updated with new agent framework principles
+  ✅ tasks-template.md - Added references to async patterns, memory testing, sidecar testing
+  ✅ spec-template.md - No changes needed (business-focused)
+  ✅ agent-file-template.md - No changes needed (structure template)
+  ✅ Added new command: review-code.md - Code review workflow
+- Follow-up TODOs: None - All templates aligned with constitution v1.1.0
 -->
 
 # Core Agent System Constitution
@@ -45,6 +47,28 @@ The public API MUST be intuitive and require minimal configuration for basic usa
 
 **Rationale**: Easy-to-use interfaces accelerate adoption and reduce integration complexity for developers.
 
+## Agent Framework Principles
+
+### VI. Async-First Architecture
+All I/O operations MUST be async (LLM calls, database access, tool execution). The framework MUST support high concurrency without blocking. Synchronous wrappers MAY be provided for convenience but MUST NOT be the primary interface. Agent lifecycle methods (start, run, stop) MUST be async.
+
+**Rationale**: Async architecture enables scalable agent deployments that can handle multiple concurrent sessions without blocking, essential for production deployments with FastAPI, asyncio frameworks, and persistent agents.
+
+### VII. Memory System Design
+Memory MUST be pluggable with support for multiple backends (in-memory, Redis, Memgraph). Memory operations MUST support multiple memory types (episodic, semantic, user profile, interaction). Retrieval MUST use multi-factor ranking (similarity, importance, recency). Memory cleanup and lifecycle management MUST be automatic with configurable policies.
+
+**Rationale**: Flexible memory architecture allows agents to scale from development (in-memory) to production (distributed backends) while maintaining consistent APIs. Multiple memory types enable sophisticated agent behavior and learning.
+
+### VIII. Observability & Tracing
+All critical operations MUST be traceable without external dependencies. Tracing MUST work locally with beautiful console output (Rich + StructLog). Performance metrics MUST be automatically collected (timing, token usage, iterations). Error context MUST include full execution state for debugging.
+
+**Rationale**: Local-first observability enables rapid debugging without complex infrastructure. Rich console output provides immediate feedback during development. Automatic metrics collection supports optimization and monitoring.
+
+### IX. Sidecar Pattern for Non-Blocking Operations
+Operations that don't affect user-facing responses MUST use sidecars to run in background. Sidecars MUST have configurable timeouts and error handling. Memory storage, analytics, and logging SHOULD be implemented as sidecars. Response latency MUST prioritize user experience over background tasks.
+
+**Rationale**: Sidecar pattern improves perceived performance by decoupling blocking operations from response generation, reducing response times by 100-200ms in typical deployments. Critical for production user experience.
+
 ## Architecture Requirements
 
 All components MUST be:
@@ -68,9 +92,15 @@ Integration points MUST support multiple backends with unified interfaces. Depen
 ### Testing Requirements
 - Unit tests for all business logic
 - Integration tests for component interactions
-- Performance benchmarks for critical paths
-- Mock-based testing for external dependencies
+- Performance benchmarks for critical paths (agent execution, memory retrieval)
+- Mock-based testing for external dependencies (LLM providers, memory backends)
 - Regression tests for bug fixes
+- Agent-specific patterns:
+  - Mock LLM providers for deterministic testing
+  - In-memory backends for fast test execution
+  - Execution pattern testing (ReAct, Chain of Thought, etc.)
+  - Sidecar execution and timeout testing
+  - Memory retrieval accuracy and ranking tests
 
 ### Documentation Standards
 - API documentation auto-generated from docstrings
@@ -98,4 +128,4 @@ Constitution follows semantic versioning:
 - MINOR: New principles or expanded guidance
 - PATCH: Clarifications and refinements
 
-**Version**: 1.0.0 | **Ratified**: 2025-09-20 | **Last Amended**: 2025-09-20
+**Version**: 1.1.0 | **Ratified**: 2025-09-20 | **Last Amended**: 2025-11-04
