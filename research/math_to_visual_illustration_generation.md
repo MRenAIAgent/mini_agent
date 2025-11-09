@@ -9,11 +9,12 @@ This document presents comprehensive research on generating visual educational m
 
 ### Key Findings
 
-1. **Multiple complementary approaches** exist: code-based (SVG/TikZ), raster image generation (diffusion models), animation (Manim), and interactive tools (GeoGebra/Desmos)
+1. **Multiple complementary approaches** exist: code-based (SVG/TikZ), raster image generation (diffusion models), animation (Manim), interactive tools (GeoGebra/Desmos), and image-to-video models
 2. **Recent breakthroughs** (2024-2025) in LLM-based diagram generation show promise, particularly for SVG and vector graphics
 3. **Multimodal models** (GPT-4V, Claude 3.5, Gemini) excel at understanding mathematical diagrams but struggle with generation
 4. **Hybrid approaches** combining LLMs for code generation + rendering engines produce the best results
-5. **Current limitations** include difficulty with complex geometric figures and precise mathematical notation
+5. **Image animation revolution:** Manim + Claude Sonnet 4.5 enables automated mathematical animation generation, while diffusion models (Stable Video Diffusion, AnimateDiff, CogVideoX) offer image-to-video capabilities
+6. **Current limitations** include difficulty with complex geometric figures and precise mathematical notation in static generation; animation precision varies by approach
 
 ---
 
@@ -25,7 +26,8 @@ This document presents comprehensive research on generating visual educational m
 4. [Benchmarks and Evaluation](#benchmarks-and-evaluation)
 5. [Recommended Architecture for mini_agent](#recommended-architecture-for-mini_agent)
 6. [Implementation Roadmap](#implementation-roadmap)
-7. [References and Resources](#references-and-resources)
+7. [Image Animation for Educational Content](#image-animation-for-educational-content)
+8. [References and Resources](#references-and-resources)
 
 ---
 
@@ -950,6 +952,846 @@ async def verify_diagram(image: Image, concept: Concept) -> bool:
 
 ---
 
+## Image Animation for Educational Content
+
+Image animation—transforming static diagrams into dynamic, moving visualizations—is a powerful educational tool for explaining mathematical concepts, processes, and transformations. This section covers state-of-the-art approaches to animating mathematical and educational content.
+
+### Why Image Animation for Math Education?
+
+**Pedagogical Benefits:**
+- **Process Visualization:** Show step-by-step transformations (e.g., geometric proofs)
+- **Concept Dynamics:** Illustrate changing relationships (e.g., function behavior)
+- **Engagement:** Moving visuals capture and maintain attention
+- **Retention:** Dual coding with motion enhances memory
+- **Accessibility:** Visual sequences support diverse learning styles
+
+**Use Cases:**
+- Geometric transformations (rotation, reflection, translation)
+- Function behavior and calculus concepts (limits, derivatives)
+- Algorithm visualization (sorting, graph traversal)
+- Physics simulations (motion, forces)
+- Statistical concepts (probability distributions evolving)
+
+### Approaches to Image Animation
+
+#### 1. Image-to-Video Diffusion Models
+
+**Stable Video Diffusion (SVD)**
+
+Released by Stability AI in 2024, SVD is a latent diffusion model specifically designed for image-to-video generation.
+
+**Technical Details:**
+- **Architecture:** Latent diffusion with temporal layers
+- **Input:** Single conditioning frame (576x1024 resolution)
+- **Output:** 25-frame video clips
+- **Variants:**
+  - `stabilityai/stable-video-diffusion-img2vid`: Base model
+  - `stabilityai/stable-video-diffusion-img2vid-xt`: Extended temporal consistency
+
+**How It Works:**
+1. Takes static image as conditioning frame
+2. Adds temporal layers to image diffusion model
+3. Generates coherent frame sequences
+4. Maintains visual consistency across frames
+
+**Educational Applications:**
+- Animate static diagrams to show transformations
+- Create motion from mathematical illustrations
+- Generate video sequences from textbook figures
+- Visualize dynamic processes
+
+**Limitations:**
+- Limited control over specific motion paths
+- 25 frames (~1 second at 25fps) relatively short
+- May introduce artifacts in complex diagrams
+- Less precise than code-based animation
+
+**HuggingFace Models:**
+- `stabilityai/stable-video-diffusion-img2vid`
+- `stabilityai/stable-video-diffusion-img2vid-xt`
+
+**AnimateDiff**
+
+AnimateDiff extends Stable Diffusion models with motion modules for controllable animation.
+
+**Key Features:**
+- **Motion Priors:** Learned motion patterns
+- **Image-to-Video:** Animate provided static images
+- **Text-to-Video:** Generate animated content from text
+- **Motion Control:** Separate motion modules predict inter-frame motion
+- **Compatibility:** Works with various Stable Diffusion checkpoints and LoRA models
+
+**Architecture:**
+- Base: Stable Diffusion model
+- Addition: Temporal layers for motion modeling
+- Training: Learns motion priors from video datasets
+
+**Advantages:**
+- Flexible motion patterns
+- Compatible with existing SD ecosystem
+- Community support and extensions
+- Can leverage LoRA models for style
+
+**Educational Use:**
+- Animate mathematical concept illustrations
+- Create dynamic visualizations from static diagrams
+- Generate explainer video sequences
+- Motion-based problem demonstrations
+
+**Resources:**
+- GitHub: guoyww/AnimateDiff
+- Models: Available on HuggingFace and CivitAI
+- Free online tool: animatediff.org
+
+#### 2. Advanced Motion Control Models
+
+**MotionCtrl (SIGGRAPH 2024)**
+
+A unified motion controller offering precise control over camera and object motion in video generation.
+
+**Key Innovations:**
+- **Unified Control:** Single model handles multiple camera motions (vs. AnimateDiff's 8 separate LoRAs)
+- **Variable Speed:** Adjustable motion speed (AnimateDiff is fixed)
+- **Camera Control:** Pan, zoom, dolly, orbit, etc.
+- **Object Motion:** Independent object movement control
+- **Deployment:** Works with LVDM, VideoCrafter1, AnimateDiff, SVD
+
+**Performance:**
+- Superior CamMC scores vs. AnimateDiff and VideoComposer
+- Better text similarity and quality metrics
+- More precise control over complex motions
+
+**Educational Applications:**
+- **Geometric Demonstrations:** Control camera to highlight specific diagram elements
+- **3D Visualization:** Orbit camera around 3D mathematical objects
+- **Focus Control:** Zoom to emphasize key parts of derivations
+- **Smooth Transitions:** Professional-quality camera movements
+
+**Technical Access:**
+- GitHub: TencentARC/MotionCtrl
+- Paper: SIGGRAPH 2024 Conference Papers
+- ArXiv: 2312.03641
+
+**Use Case Example:**
+```
+Input: Static diagram of a 3D geometric shape
+MotionCtrl: Specify camera orbit at varying speed
+Output: Smooth 360° rotation showing all angles
+```
+
+**First Order Motion Model (FOMM)**
+
+A pioneering approach to image animation using self-supervised keypoint detection.
+
+**Methodology:**
+- **Self-Supervised:** No manual annotations required
+- **Keypoint-Based:** Learns key points and local affine transformations
+- **Driving Video:** Motion transferred from source to target
+- **Appearance-Motion Decoupling:** Separates what from how
+
+**Technical Approach:**
+1. Detect keypoints in source image
+2. Detect keypoints in driving video frames
+3. Compute local affine transformations
+4. Apply transformations to source image
+5. Generate animated sequence
+
+**Applications:**
+- Face reenactment (talking head videos)
+- Object animation from template motion
+- Character animation
+- Educational presenter videos
+
+**2024 Extension: FSRT (CVPR 2024)**
+- "Facial Scene Representation Transformer for Face Reenactment"
+- Builds on FOMM with transformer architecture
+- Factorizes appearance, head-pose, and facial expression
+- Improved quality and control
+
+**Educational Use Cases:**
+- Create animated instructor/tutor from single image
+- Transfer explanatory gestures to virtual teacher
+- Animate historical figures for educational content
+- Generate engaging talking-head explainers
+
+**Limitations:**
+- Ghost effects with significant pose changes
+- Struggles with dramatic transformations
+- Best for face/body animation, less for diagrams
+
+**Resources:**
+- GitHub: AliaksandrSiarohin/first-order-model
+- ArXiv: 2003.00196 (NeurIPS 2019)
+- ComfyUI Integration: FuouM/ComfyUI-FirstOrderMM
+
+#### 3. Commercial Video Generation Platforms
+
+**OpenAI Sora (2024-2025)**
+
+OpenAI's text-to-video and image-to-video model, representing state-of-the-art in AI video generation.
+
+**Capabilities:**
+- **Multi-Input:** Text, images, existing video
+- **Realism:** Highly realistic, indistinguishable from CGI
+- **Complex Scenes:** Multiple characters, specific motions
+- **Long Duration:** Extended video clips
+- **Physics Understanding:** Realistic motion and interactions
+
+**Educational Applications:**
+- Educational content creation
+- Complex scene visualization
+- Realistic simulations
+- Story-based learning
+- AI ethics and tech literacy programs
+
+**Characteristics:**
+- Deep prompt-response architecture
+- Interpretive design for nuanced requests
+- Professional-quality output
+- Currently limited availability
+
+**Status:** Restricted access, used in specialized educational programs
+
+**Runway Gen-3 (2024)**
+
+Professional video generation platform with comprehensive features.
+
+**Features:**
+- **Text-to-Video:** Generate from descriptions
+- **Image-to-Video:** Animate static images
+- **Video-to-Video:** Transform existing footage
+- **Clip Extensions:** Extend video duration
+- **Lip-Syncing:** Audio synchronization
+
+**Strengths:**
+- Realistic video output
+- Professional quality
+- Flexible input formats
+- Active development and updates
+
+**Educational Applications:**
+- Design and media classes
+- Storytelling and multimedia production
+- Marketing and promotional content
+- High-quality explainer videos
+
+**Target Users:** Content creators, filmmakers, educators, marketers
+
+**Pika Labs (2024)**
+
+Accessible AI video generator with distinctive stylized output.
+
+**Style:**
+- Cartoonish/illustrative aesthetic
+- Stylized rather than photorealistic
+- Engaging for social media and explainers
+
+**Capabilities:**
+- Text-to-video generation
+- Image-to-video animation
+- Quick generation times
+- User-friendly interface
+
+**Best For:**
+- Social media content
+- Explainer videos
+- Engaging educational shorts
+- Quick concept visualizations
+
+**Educational Advantage:**
+- Lower barrier to entry
+- Faster iteration
+- Stylized output can enhance memorability
+- Cost-effective for educators
+
+**CogVideoX (August 2024)**
+
+Open-source video generation model from Tsinghua University.
+
+**Versions:**
+- **CogVideoX (Aug 2024):** 6-second clips
+- **CogVideoX1.5 (Nov 2024):** 10-second videos, higher resolution
+- **CogVideoX1.5-5B-I2V:** Any resolution support
+
+**Three Task Types:**
+1. **Text-to-Video:** Generate from descriptions
+2. **Video Continuation:** Extend existing clips
+3. **Image-to-Video:** Animate static images
+
+**Educational Focus:**
+- Specifically suitable for educational content
+- Instructional videos from static diagrams
+- Marketing and social media for education
+- High-definition content creation
+
+**Advantages:**
+- **Open Source:** Free to use and modify
+- **Active Development:** Regular updates
+- **Community Support:** GitHub community
+- **Flexible Deployment:** Self-hosted or cloud
+
+**Resources:**
+- GitHub: zai-org/CogVideo
+- Models on HuggingFace
+- Supports commercial use
+
+**Use Cases:**
+- Educational video generation
+- Diagram animation for lessons
+- Social media educational content
+- Course material enhancement
+
+**Kling AI (June 2024)**
+
+Chinese commercial platform, dubbed "world's most powerful AI video generator."
+
+**Stats:**
+- 22+ million users
+- 168 million videos generated
+- Developed by Kuaishou
+- Positioned as Sora competitor
+
+**Capabilities:**
+- Up to 2 minutes of video generation
+- **Kling 2.0:** Longer videos at 720p
+- Text-to-video and image-to-video
+- High-quality output
+
+**Educational Applications:**
+- Short educational films
+- Advertisements for educational institutions
+- Engaging social media posts
+- Quick educational content
+
+**Target Audience:**
+- Social media marketers
+- Advertisers
+- **Educators** seeking quick, engaging videos
+
+**Pricing:** Free tier + commercial plans
+
+**Luma Dream Machine**
+
+Quick generation platform for concept visualization.
+
+**Educational Use:**
+- Science concept visualization
+- Environment simulations
+- Natural phenomena (gravitational motion, weather)
+- Quick, accessible demonstrations
+
+**Characteristics:**
+- Fast generation
+- Visual focus
+- Accessible interface
+- Concept-first approach
+
+**Best For:**
+- Quick prototypes
+- Classroom demonstrations
+- Science education
+- Rapid iteration
+
+#### 4. Educational Math Animation Tools
+
+**Math-To-Manim (October 2025)**
+
+Automated generation of Manim animations from text and images.
+
+**Recent Update:**
+- Migrated to Claude Sonnet 4.5 + Claude Agent SDK
+- 55+ working animations
+- Covers physics, mathematics, CS, cosmology
+
+**Capabilities:**
+- **Input:** Text descriptions or images
+- **Output:** Manim animation code + rendered video
+- **Domains:** Multi-disciplinary STEM content
+- **LLM Integration:** Uses latest Claude for generation
+
+**Workflow:**
+1. User provides text/image describing concept
+2. LLM generates Manim code
+3. Code executed to render animation
+4. Output: Video file + source code
+
+**Educational Value:**
+- Automates complex Manim coding
+- Makes animation accessible to non-programmers
+- Produces professional-quality output
+- Editable code for customization
+
+**Resources:**
+- GitHub: HarleyCoops/Math-To-Manim
+- Uses Claude Sonnet 4.5
+- Active development
+
+**MathMatrixMovies (May 2024)**
+
+Specialized tool for age-appropriate math explainer videos.
+
+**Key Features:**
+- **AI Model:** Powered by Gemini Pro 1.5 + Manim
+- **Age Targeting:** Select 3-18, undergraduate, or graduate
+- **Multilingual:** English, Hindi, Tamil, Spanish
+- **Input:** Simple text prompts
+- **Output:** Animated explainer videos
+
+**Pedagogical Approach:**
+- Age-appropriate complexity
+- Language accessibility
+- Visual engagement
+- Curriculum alignment
+
+**Use Case:**
+```
+Input: "Explain quadratic formula for 9th graders in Spanish"
+Output: Animated video with age-appropriate pacing and Spanish narration
+```
+
+**ManimGPT**
+
+Free AI-powered Manim assistance tool.
+
+**Capabilities:**
+- Generate Manim code from descriptions
+- Troubleshoot existing code
+- Suggest animations for concepts
+- Explain Manim functions
+
+**Target Users:**
+- Educators learning Manim
+- Students creating presentations
+- Content creators
+- Researchers visualizing work
+
+**Math Visualizer**
+
+Specialized GPT for mathematical animations.
+
+**Focus:**
+- Manim Community Edition framework
+- Mathematical animation and visual content
+- Educator, student, and professional support
+- Step-by-step guidance
+
+**NoteGPT AI Math Video Generator**
+
+Automated math video creation platform.
+
+**Features:**
+- Turn math concepts to video
+- Free tier available
+- Quick generation
+- Educational focus
+
+#### 5. Traditional Animation Techniques: Morphing
+
+**Mathematical Morphing**
+
+Morphing transforms one image into another through smooth intermediate states.
+
+**Technical Definition:**
+- "Spatially warped cross-dissolve"
+- Combines warping (geometric transformation) + cross-dissolving (opacity blending)
+
+**Two Components:**
+
+1. **Warping:**
+   - Geometric distortion of image structure
+   - Affine transformations between corresponding points
+   - Triangle-based mesh deformation
+
+2. **Cross-Dissolving:**
+   - Linear interpolation: `A*t + B*(1-t)` where `t ∈ [0,1]`
+   - Opacity blending between source and target
+   - Smooth transition
+
+**Mathematical Framework:**
+
+```
+# Affine transformation for triangle warping
+Given triangles ABC (source) and A'B'C' (target):
+1. Define correspondence points
+2. Compute affine matrix M: ABC → A'B'C'
+3. For each t ∈ [0,1], interpolate:
+   - Geometry: Intermediate triangle position
+   - Color: Weighted average of pixel values
+4. Render frame
+```
+
+**Educational Applications:**
+
+**Geometric Transformations:**
+- Morph square → circle to show continuous deformation
+- Visualize shape relationships
+- Demonstrate topology concepts
+
+**Function Visualization:**
+- Morph between different graph shapes
+- Show parameter effects (e.g., changing coefficient in y=ax²)
+- Illustrate function families
+
+**Algebraic Concepts:**
+- Transform one equation form to another
+- Visualize equivalence
+- Show symbolic manipulation
+
+**Polymorph:**
+- Morphing among multiple images (not just two)
+- Mathematical framework for multi-way transitions
+- Warp function generation and propagation
+
+**Tools for Morphing:**
+- Python: OpenCV, scipy.interpolate
+- Web: Canvas API with interpolation
+- After Effects: Professional morphing
+- FFmpeg: Video generation from frames
+
+**Advantages:**
+- Mathematically precise
+- Full control over interpolation
+- Lightweight computation
+- Deterministic output
+
+**Limitations:**
+- Requires correspondence points
+- Best for similar structures
+- Manual setup for complex shapes
+- Not AI-based (less automatic)
+
+### Recommended Approach for mini_agent
+
+Based on the research, here's a tiered approach to image animation:
+
+#### Tier 1: Code-Based Animation (Highest Priority)
+
+**Primary: Manim + LLM**
+
+```python
+class ManimAnimationGenerator(BaseMaterialGenerator):
+    """Generate educational animations via Manim + Claude/GPT-4"""
+
+    async def generate(self,
+                      concept: Concept,
+                      learning_objective: str) -> AnimationMaterial:
+
+        # 1. Generate Manim code via LLM
+        prompt = f"""
+        Generate Manim code to animate the following concept:
+        {concept.description}
+
+        Learning objective: {learning_objective}
+
+        Requirements:
+        - Clear, step-by-step progression
+        - Appropriate pacing for education
+        - Labeled elements
+        - Professional quality
+
+        Output only the Python/Manim code.
+        """
+
+        manim_code = await self.llm.generate(prompt)
+
+        # 2. Validate syntax
+        validated_code = await self._validate_python(manim_code)
+
+        # 3. Execute in sandbox
+        animation_file = await self._render_manim(validated_code)
+
+        # 4. Extract keyframes for preview
+        keyframes = await self._extract_keyframes(animation_file)
+
+        return AnimationMaterial(
+            video=animation_file,
+            source_code=validated_code,
+            keyframes=keyframes,
+            format="mp4",
+            duration=self._get_duration(animation_file)
+        )
+```
+
+**Advantages:**
+- Precise mathematical accuracy
+- Full control over timing and transitions
+- Editable source code
+- Reproducible
+- Professional quality
+
+**Use For:**
+- Complex mathematical derivations
+- Geometric proofs
+- Algorithm visualizations
+- Step-by-step explanations
+
+#### Tier 2: Morphing for Simple Transformations
+
+**Secondary: Custom Morphing Engine**
+
+```python
+class DiagramMorphingGenerator(BaseMaterialGenerator):
+    """Morph between mathematical diagrams"""
+
+    async def generate(self,
+                      source_image: Image,
+                      target_image: Image,
+                      frames: int = 60) -> AnimationMaterial:
+
+        # 1. Detect correspondence points (via CV or manual)
+        source_points = await self._detect_keypoints(source_image)
+        target_points = await self._detect_keypoints(target_image)
+
+        # 2. Match correspondences
+        matches = await self._match_points(source_points, target_points)
+
+        # 3. Generate intermediate frames
+        frame_sequence = []
+        for t in np.linspace(0, 1, frames):
+            # Warp geometry
+            warped_source = self._warp_image(source_image, matches, t)
+            warped_target = self._warp_image(target_image, matches, 1-t)
+
+            # Cross-dissolve
+            blended = warped_source * (1-t) + warped_target * t
+
+            frame_sequence.append(blended)
+
+        # 4. Render video
+        video_file = await self._frames_to_video(frame_sequence, fps=30)
+
+        return AnimationMaterial(
+            video=video_file,
+            format="mp4",
+            duration=frames/30
+        )
+```
+
+**Use For:**
+- Shape transformations
+- Function graph evolution
+- Simple geometric animations
+- Quick transitions
+
+#### Tier 3: Diffusion Models for Complex Scenes
+
+**Tertiary: Image-to-Video Models**
+
+```python
+class DiffusionAnimationGenerator(BaseMaterialGenerator):
+    """Use SVD or AnimateDiff for image animation"""
+
+    def __init__(self, model_name: str = "stabilityai/stable-video-diffusion-img2vid-xt"):
+        self.pipeline = StableVideoDiffusionPipeline.from_pretrained(model_name)
+
+    async def generate(self,
+                      source_image: Image,
+                      motion_hint: str = None) -> AnimationMaterial:
+
+        # 1. Prepare image
+        conditioned_image = self._prepare_conditioning_frame(source_image)
+
+        # 2. Generate video
+        frames = self.pipeline(
+            image=conditioned_image,
+            decode_chunk_size=8,
+            num_frames=25,
+            motion_bucket_id=127  # motion amount
+        ).frames[0]
+
+        # 3. Convert to video
+        video_file = await self._frames_to_video(frames, fps=25)
+
+        return AnimationMaterial(
+            video=video_file,
+            format="mp4",
+            duration=1.0  # 25 frames at 25fps
+        )
+```
+
+**Use For:**
+- Complex scenes with natural motion
+- Conceptual animations
+- When precise control not critical
+- Quick prototypes
+
+**Limitations:**
+- Less mathematical precision
+- Limited control
+- Short duration (1 second)
+- May require multiple attempts
+
+#### Tier 4: Commercial Platforms (Optional)
+
+**For Premium Content:**
+
+Consider integration with commercial APIs for high-quality output:
+
+- **CogVideoX:** Open-source, educational focus
+- **Runway Gen-3:** Professional quality (API available)
+- **Pika:** Quick, stylized animations
+
+```python
+class CommercialVideoGenerator(BaseMaterialGenerator):
+    """Use commercial APIs for premium content"""
+
+    async def generate_with_runway(self,
+                                   source_image: Image,
+                                   prompt: str) -> AnimationMaterial:
+        # API integration
+        pass
+
+    async def generate_with_cogvideo(self,
+                                    concept_description: str) -> AnimationMaterial:
+        # Open-source model integration
+        pass
+```
+
+**Use Cases:**
+- Marketing materials
+- Course trailers
+- High-impact demonstrations
+- Polished final products
+
+### Integration Strategy for mini_agent
+
+**Decision Tree:**
+
+```python
+def select_animation_strategy(concept: Concept,
+                             requirements: AnimationRequirements) -> Strategy:
+
+    # High precision mathematical content?
+    if concept.requires_precision and concept.type in ["geometry", "calculus", "proofs"]:
+        return Strategy.MANIM_LLM
+
+    # Simple transformation between states?
+    elif concept.type == "transformation" and len(concept.states) == 2:
+        return Strategy.MORPHING
+
+    # Complex scene with natural motion?
+    elif requirements.style == "realistic" and not requirements.precision_critical:
+        return Strategy.DIFFUSION_MODELS
+
+    # Premium quality needed?
+    elif requirements.quality == "premium" and budget.allows_commercial:
+        return Strategy.COMMERCIAL_API
+
+    # Default: Manim
+    else:
+        return Strategy.MANIM_LLM
+```
+
+**Recommended Stack:**
+
+1. **Primary:** Manim + Claude Sonnet 4.5 (following Math-To-Manim approach)
+2. **Secondary:** Custom morphing engine for transitions
+3. **Tertiary:** CogVideoX (open-source) for complex scenes
+4. **Optional:** Commercial API for premium content
+
+**Infrastructure Requirements:**
+
+```python
+# requirements.txt additions for animation
+
+# Manim
+manim>=0.18.0
+manimce>=0.18.0  # Community edition
+
+# Video processing
+opencv-python>=4.8.0
+ffmpeg-python>=0.2.0
+moviepy>=1.0.3
+
+# Diffusion models
+diffusers>=0.25.0
+transformers>=4.36.0
+torch>=2.1.0
+
+# Image processing
+scikit-image>=0.22.0
+pillow>=10.0.0
+
+# Optional: Commercial API clients
+runway-python  # if available
+```
+
+**Deployment Considerations:**
+
+1. **Rendering:** Manim requires computational resources
+   - Consider render farm or cloud rendering
+   - Cache rendered animations
+   - Pre-render common patterns
+
+2. **Storage:** Video files are larger than static images
+   - Efficient compression (H.264, VP9)
+   - CDN for delivery
+   - Progressive loading
+
+3. **Generation Time:** Animations take longer than static images
+   - Async processing queues
+   - Progress notifications
+   - Estimated completion times
+
+### Best Practices
+
+**1. Pedagogical Design:**
+
+- **Pacing:** Match animation speed to cognitive load
+- **Highlighting:** Use color/motion to direct attention
+- **Segmentation:** Break complex animations into steps
+- **Repetition:** Loop key moments for reinforcement
+- **Interactivity:** Allow pause/replay/speed control
+
+**2. Technical Quality:**
+
+- **Resolution:** Minimum 720p, prefer 1080p
+- **Frame Rate:** 30fps for smooth motion, 60fps for professional
+- **Duration:** Keep under 30 seconds for attention span
+- **File Size:** Optimize for web delivery (< 10MB ideal)
+- **Accessibility:** Provide captions and audio descriptions
+
+**3. Evaluation:**
+
+```python
+async def evaluate_animation(animation: AnimationMaterial,
+                            concept: Concept) -> EvaluationScore:
+
+    criteria = {
+        "mathematical_accuracy": await check_accuracy(animation, concept),
+        "visual_clarity": await check_clarity(animation),
+        "pedagogical_effectiveness": await check_pedagogy(animation, concept),
+        "technical_quality": await check_technical(animation),
+        "engagement": await check_engagement(animation)
+    }
+
+    return EvaluationScore(criteria)
+```
+
+**4. User Control:**
+
+Allow educators to:
+- Adjust animation speed
+- Select specific segments
+- Add annotations
+- Export at different resolutions
+- Download source code (for Manim)
+
+### Comparison Matrix
+
+| Approach | Precision | Control | Quality | Speed | Cost | Best For |
+|----------|-----------|---------|---------|-------|------|----------|
+| **Manim + LLM** | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ | ⭐⭐ | Low | Math proofs, algorithms |
+| **Morphing** | ⭐⭐⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐⭐⭐ | Low | Transformations |
+| **SVD/AnimateDiff** | ⭐⭐ | ⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐ | Medium | Natural motion |
+| **MotionCtrl** | ⭐⭐⭐ | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐ | Medium | Camera control |
+| **FOMM** | ⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐ | Low | Talking heads |
+| **Sora** | ⭐⭐⭐ | ⭐⭐ | ⭐⭐⭐⭐⭐ | ⭐⭐ | High | Complex scenes |
+| **CogVideoX** | ⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐⭐ | Free | General education |
+| **Runway Gen-3** | ⭐⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ | ⭐⭐⭐ | High | Professional content |
+
+---
+
 ## References and Resources
 
 ### Research Papers
@@ -991,6 +1833,28 @@ async def verify_diagram(image: Image, concept: Concept) -> bool:
 10. **Drawing Pandas: Benchmark for LLMs in Generating Plotting Code**
     - ArXiv: 2412.02764
 
+11. **First Order Motion Model for Image Animation**
+    - NeurIPS 2019
+    - ArXiv: 2003.00196
+    - Self-supervised keypoint-based animation
+
+12. **MotionCtrl: A Unified and Flexible Motion Controller for Video Generation**
+    - SIGGRAPH 2024
+    - ArXiv: 2312.03641
+    - Unified camera and object motion control
+
+13. **FSRT: Facial Scene Representation Transformer for Face Reenactment**
+    - CVPR 2024
+    - Extends FOMM with transformer architecture
+
+14. **Diffusion Models for Video Generation**
+    - Survey by Lilian Weng (2024)
+    - Comprehensive overview of video diffusion models
+
+15. **VividPose: Advancing Stable Video Diffusion for Realistic Human Image Animation**
+    - ArXiv: 2405.18156
+    - Human animation using SVD
+
 ### GitHub Repositories
 
 - **MathVerse:** github.com/ZrrSkywalker/MathVerse
@@ -1003,12 +1867,22 @@ async def verify_diagram(image: Image, concept: Concept) -> bool:
 - **GeoGebra Integration:** github.com/geogebra/integration
 - **Awesome Multimodal LLM Math/STEM:** github.com/InfiMM/Awesome-Multimodal-LLM-for-Math-STEM
 - **Awesome VLM Architectures:** github.com/gokayfem/awesome-vlm-architectures
+- **Math-To-Manim:** github.com/HarleyCoops/Math-To-Manim
+- **First Order Motion Model:** github.com/AliaksandrSiarohin/first-order-model
+- **ComfyUI-FirstOrderMM:** github.com/FuouM/ComfyUI-FirstOrderMM
+- **MotionCtrl:** github.com/TencentARC/MotionCtrl
+- **AnimateDiff:** github.com/guoyww/AnimateDiff
+- **CogVideo:** github.com/zai-org/CogVideo
+- **Awesome-Video-Diffusion:** github.com/showlab/Awesome-Video-Diffusion
 
 ### HuggingFace Resources
 
 - **MathVerse Dataset:** AI4Math/MathVerse
 - **StarVector Model:** starvector/starvector-8b-im2svg
 - **Qwen2-VL:** Qwen/Qwen2-VL-7B-Instruct
+- **Stable Video Diffusion:** stabilityai/stable-video-diffusion-img2vid
+- **Stable Video Diffusion XT:** stabilityai/stable-video-diffusion-img2vid-xt
+- **CogVideoX Models:** THUDM/CogVideoX-5b and variants
 
 ### APIs and Tools
 
@@ -1016,6 +1890,12 @@ async def verify_diagram(image: Image, concept: Concept) -> bool:
 - **GeoGebra API:** geogebra.github.io/docs/reference/en/GeoGebra_Apps_API/
 - **OpenAI DALL-E 3:** platform.openai.com/docs/guides/images
 - **Plotly + GenAI:** plotly.com (2025 release)
+- **OpenAI Sora:** platform.openai.com (limited access)
+- **Runway Gen-3:** runwayml.com
+- **Pika Labs:** pika.art
+- **Kling AI:** klingai.com
+- **AnimateDiff Online:** animatediff.org
+- **Luma Dream Machine:** lumalabs.ai
 
 ### Benchmarks
 
@@ -1044,29 +1924,43 @@ async def verify_diagram(image: Image, concept: Concept) -> bool:
 Material generation from mathematical concepts to visual illustrations is a rapidly evolving field with multiple viable approaches:
 
 1. **Code-based generation (Recommended)** offers precision, editability, and reproducibility
-2. **Diffusion models** provide quick conceptual illustrations
+2. **Diffusion models** provide quick conceptual illustrations and image animation
 3. **Interactive tools** enable exploration and engagement
-4. **Animation** supports step-by-step understanding
+4. **Animation (Static + Video)** supports step-by-step understanding and dynamic visualization
 
 For the **mini_agent** educational framework, a **hybrid approach** is recommended:
-- Use **LLM → Code → Render** pipeline as primary method
-- Supplement with **diffusion models** for conceptual art
-- Integrate **interactive tools** for exploration
-- Consider **animations** for complex explanations
+
+**Static Content:**
+- Use **LLM → Code → Render** pipeline as primary method (SVG, TikZ, Matplotlib)
+- Supplement with **diffusion models** for conceptual art (DALL-E 3, Stable Diffusion)
+- Integrate **interactive tools** for exploration (Desmos, GeoGebra)
+
+**Animated Content:**
+- **Primary:** Manim + Claude Sonnet 4.5 for precise mathematical animations
+- **Secondary:** Morphing engine for simple transformations
+- **Tertiary:** Stable Video Diffusion / CogVideoX for complex natural motion
+- **Optional:** Commercial platforms (Sora, Runway, Pika) for premium content
 
 The existing infrastructure (LiteLLM, async architecture, knowledge graphs) provides an excellent foundation. Implementation can proceed incrementally through the proposed 6-8 week roadmap, starting with plot generation and progressively adding more sophisticated capabilities.
 
 **Key Success Factors:**
-- Strong prompt engineering for each generation type
+- Strong prompt engineering for each generation type (static and animated)
 - Multi-modal evaluation using GPT-4V/Claude 3.5
 - Iterative refinement based on educational goals
 - Integration with student profiling for personalization
 - Robust caching and error handling
+- Efficient video processing and delivery infrastructure
 
-The research shows this is technically feasible with current models, particularly GPT-4, Claude 3.5, and specialized tools like StarVector for SVG generation.
+**Image Animation Breakthrough:**
+The research reveals that **Manim + LLM** (following Math-To-Manim approach with Claude Sonnet 4.5) provides the most precise and educationally effective animation solution for mathematical content, while image-to-video diffusion models (SVD, AnimateDiff, CogVideoX) offer quick alternatives for less precision-critical scenarios.
+
+The research shows this is technically feasible with current models, particularly:
+- **Static:** GPT-4, Claude 3.5, StarVector (SVG), Matplotlib/Plotly generation
+- **Animated:** Manim + Claude Sonnet 4.5, Stable Video Diffusion, CogVideoX, MotionCtrl
 
 ---
 
-**Document Version:** 1.0
-**Last Updated:** 2025-11-09
+**Document Version:** 2.0
+**Last Updated:** 2025-11-09 (Added Image Animation section)
 **Next Review:** After Phase 1 implementation
+**Sections:** Static Material Generation + Image Animation for Educational Content
