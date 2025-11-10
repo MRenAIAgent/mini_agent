@@ -4,7 +4,9 @@
 
 The MCP Security Layer adds intelligent selection and security controls to MCP (Model Context Protocol) integration. It provides:
 
-1. **Intelligent MCP Selection** - Automatically loads only relevant MCPs based on agent capabilities
+1. **Intelligent MCP Selection** - Automatically loads only relevant MCPs
+   - **Static**: Based on agent system prompt (initialization)
+   - **Dynamic**: Based on user queries (runtime hot-loading)
 2. **Security Policies** - Fine-grained access control and threat prevention
 3. **Input Validation** - Protection against injection attacks
 4. **Audit Logging** - Complete trail of all MCP operations
@@ -98,7 +100,45 @@ print(f"Selected MCPs: {selected_mcps}")
 # Output: Selected MCPs: ['calculator', 'database', 'visualization']
 ```
 
-### 5. Use Security Middleware
+### 5. Enable Dynamic MCP Selection (NEW!)
+
+**Dynamic selection** allows MCPs to be hot-loaded during conversation based on user queries:
+
+```python
+# Create session to track loaded MCPs
+session = engine.create_session(
+    agent_id="analyst-001",
+    session_id="sess-123",
+    baseline_mcps=selected_mcps  # MCPs from step 4
+)
+
+# Later, during conversation...
+user_query = "What's the weather in New York?"
+
+# Dynamically select and load MCPs based on query
+new_mcps = await engine.auto_select_for_query(
+    user_query=user_query,
+    session_id="sess-123",
+    agent_permissions={"read:database", "execute:calculations", "read:api"},
+    auto_load=True  # Automatically load selected MCPs
+)
+
+print(f"Dynamically loaded: {new_mcps}")
+# Output: Dynamically loaded: ['weather']
+
+print(f"Total MCPs now: {session.loaded_mcps}")
+# Output: Total MCPs now: {'calculator', 'database', 'visualization', 'weather'}
+```
+
+**Key Benefits:**
+- 🚀 **Hot-loading**: Load MCPs during conversation without restart
+- 🎯 **Contextual**: Only loads MCPs relevant to user's question
+- 🔒 **Secure**: Still respects permissions and security policies
+- 💾 **Efficient**: Doesn't load all MCPs upfront
+
+See [mcp-dynamic-selection.md](mcp-dynamic-selection.md) for detailed documentation.
+
+### 6. Use Security Middleware
 
 ```python
 from security.policy_engine import PolicyEngine, SecurityContext
@@ -245,8 +285,8 @@ async def main():
         rate_limits={}
     )
 
-    # 4. Select MCPs for agent
-    selected_mcps = await selection_engine.select_mcps_for_agent(
+    # 4. Select baseline MCPs from system prompt
+    baseline_mcps = await selection_engine.select_mcps_for_agent(
         system_prompt="""
         You are a financial analyst. You analyze market data,
         perform statistical calculations, and create reports.
@@ -256,7 +296,29 @@ async def main():
         max_mcps=5
     )
 
-    print(f"Selected MCPs: {selected_mcps}")
+    print(f"Baseline MCPs: {baseline_mcps}")
+    # Output: ['calculator', 'database', 'visualization']
+
+    # 4b. Create session for dynamic loading
+    session = selection_engine.create_session(
+        agent_id="analyst-001",
+        session_id="sess-123",
+        baseline_mcps=baseline_mcps
+    )
+
+    # 4c. Simulate user asking for weather (not in baseline)
+    user_query = "What's the weather forecast for tomorrow?"
+
+    # Dynamically select and load weather MCP
+    new_mcps = await selection_engine.auto_select_for_query(
+        user_query=user_query,
+        session_id="sess-123",
+        agent_permissions=context.permissions | {"read:api"},  # Add API permission
+        auto_load=True
+    )
+
+    print(f"Dynamically loaded: {new_mcps}")
+    # Output: ['weather']
 
     # 5. Execute tool with security checks
     tool_name = "calculator_mean"

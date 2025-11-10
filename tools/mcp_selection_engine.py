@@ -2,16 +2,23 @@
 MCP Selection Engine
 
 Intelligently selects and loads MCP servers based on agent system prompts,
-roles, and capabilities.
+roles, capabilities, AND user queries (dynamic selection).
+
+Supports:
+- Static selection from system prompt (baseline capabilities)
+- Dynamic selection from user queries (runtime needs)
+- Hot-loading MCPs during conversation
+- Session-based MCP management
 """
 
 import re
 import logging
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Set, Any
+from typing import Dict, List, Optional, Set, Any, Callable
 from functools import lru_cache
 import numpy as np
 from collections import OrderedDict
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +41,40 @@ class MCPMetadata:
         """Validate risk level."""
         if self.risk_level not in ["low", "medium", "high"]:
             raise ValueError(f"Invalid risk_level: {self.risk_level}")
+
+
+@dataclass
+class MCPSession:
+    """Tracks loaded MCPs for an agent session."""
+
+    agent_id: str
+    session_id: str
+    loaded_mcps: Set[str] = field(default_factory=set)
+    baseline_mcps: Set[str] = field(default_factory=set)  # From system prompt
+    dynamic_mcps: Set[str] = field(default_factory=set)   # From user queries
+    query_history: List[str] = field(default_factory=list)
+    created_at: datetime = field(default_factory=datetime.now)
+    last_updated: datetime = field(default_factory=datetime.now)
+
+    def add_mcp(self, mcp_name: str, is_dynamic: bool = False) -> None:
+        """Add an MCP to the session."""
+        self.loaded_mcps.add(mcp_name)
+        if is_dynamic:
+            self.dynamic_mcps.add(mcp_name)
+        else:
+            self.baseline_mcps.add(mcp_name)
+        self.last_updated = datetime.now()
+
+    def remove_mcp(self, mcp_name: str) -> None:
+        """Remove an MCP from the session."""
+        self.loaded_mcps.discard(mcp_name)
+        self.baseline_mcps.discard(mcp_name)
+        self.dynamic_mcps.discard(mcp_name)
+        self.last_updated = datetime.now()
+
+    def is_loaded(self, mcp_name: str) -> bool:
+        """Check if MCP is already loaded."""
+        return mcp_name in self.loaded_mcps
 
 
 class LRUCache:
@@ -63,11 +104,16 @@ class MCPSelectionEngine:
     """
     Analyzes agent context and selects relevant MCP servers.
 
+    Supports both:
+    - Static selection: From system prompt at agent initialization
+    - Dynamic selection: From user queries during conversation
+
     Uses multiple strategies:
     1. Semantic similarity (if embedding model available)
     2. Keyword extraction and matching
     3. Role-based filtering
     4. Usage pattern analysis
+    5. Query-based hot-loading
     """
 
     def __init__(self, use_embeddings: bool = False):
@@ -81,6 +127,10 @@ class MCPSelectionEngine:
         self.selection_cache = LRUCache(maxsize=100)
         self.use_embeddings = use_embeddings
 
+        # Session management for dynamic loading
+        self.sessions: Dict[str, MCPSession] = {}
+        self.mcp_loader: Optional[Callable] = None  # Callback to load MCP
+
         # Try to load embedding model if requested
         self.embedding_model = None
         if use_embeddings:
@@ -93,6 +143,16 @@ class MCPSelectionEngine:
                     "sentence-transformers not installed, falling back to keyword matching"
                 )
                 self.use_embeddings = False
+
+    def set_mcp_loader(self, loader: Callable) -> None:
+        """
+        Set callback function for loading MCPs dynamically.
+
+        Args:
+            loader: Async function that loads an MCP: async def(mcp_name, metadata) -> bool
+        """
+        self.mcp_loader = loader
+        logger.info("MCP loader callback registered for dynamic loading")
 
     def register_mcp(self, metadata: MCPMetadata) -> None:
         """
@@ -227,6 +287,253 @@ class MCPSelectionEngine:
 
         return selected
 
+    async def select_mcps_for_query(
+        self,
+        user_query: str,
+        session_id: str,
+        agent_permissions: Set[str],
+        max_new_mcps: int = 3,
+        confidence_threshold: float = 0.3
+    ) -> List[str]:
+        """
+        Dynamically select MCPs based on user query.
+
+        This enables hot-loading of MCPs during conversation when
+        the user asks for something not covered by baseline MCPs.
+
+        Args:
+            user_query: User's question or request
+            session_id: Session ID to track loaded MCPs
+            agent_permissions: Permissions the agent has
+            max_new_mcps: Maximum new MCPs to load
+            confidence_threshold: Minimum score to trigger loading
+
+        Returns:
+            List of newly selected MCP names (not already loaded)
+
+        Example:
+            System prompt: "You are a data analyst"
+            Baseline MCPs: [calculator, database]
+
+            User query: "What's the weather in NYC?"
+            → Detects "weather" capability
+            → Returns: ["weather"]
+            → Hot-loads weather MCP
+        """
+        # Get or create session
+        session = self.sessions.get(session_id)
+        if not session:
+            logger.warning(f"No session found for {session_id}, creating new one")
+            session = MCPSession(
+                agent_id="unknown",
+                session_id=session_id
+            )
+            self.sessions[session_id] = session
+
+        # Add query to history
+        session.query_history.append(user_query)
+
+        # Extract capabilities from query
+        required_capabilities = self.extract_capabilities(user_query)
+
+        logger.info(
+            f"Query capabilities: {required_capabilities} | "
+            f"Already loaded: {session.loaded_mcps}"
+        )
+
+        # Score all MCPs
+        scored_mcps = []
+        for mcp_name, mcp_metadata in self.mcp_registry.items():
+            # Skip if already loaded
+            if session.is_loaded(mcp_name):
+                logger.debug(f"Skipping {mcp_name}: already loaded")
+                continue
+
+            # Check permissions
+            if not self._has_required_permissions(
+                agent_permissions,
+                mcp_metadata.required_permissions
+            ):
+                logger.debug(
+                    f"Skipping {mcp_name}: missing permissions"
+                )
+                continue
+
+            # Compute relevance score
+            if self.use_embeddings and self.embedding_model:
+                score = self.compute_semantic_match(
+                    user_query,
+                    mcp_metadata
+                )
+            else:
+                score = self.compute_keyword_match(
+                    required_capabilities,
+                    mcp_metadata
+                )
+
+            # Only consider MCPs above threshold
+            if score >= confidence_threshold:
+                scored_mcps.append((mcp_name, score))
+
+        # Sort by score descending
+        scored_mcps.sort(key=lambda x: x[1], reverse=True)
+
+        # Select top-K new MCPs
+        new_mcps = [name for name, score in scored_mcps[:max_new_mcps]]
+
+        if new_mcps:
+            logger.info(
+                f"Query triggered loading of new MCPs: {new_mcps}"
+            )
+        else:
+            logger.debug(
+                f"No new MCPs needed for query (loaded: {session.loaded_mcps})"
+            )
+
+        return new_mcps
+
+    async def load_mcps_dynamically(
+        self,
+        session_id: str,
+        mcp_names: List[str]
+    ) -> Dict[str, bool]:
+        """
+        Hot-load MCPs during conversation.
+
+        Args:
+            session_id: Session ID
+            mcp_names: List of MCP names to load
+
+        Returns:
+            Dict mapping MCP name to success status
+
+        Raises:
+            RuntimeError: If MCP loader not set
+        """
+        if not self.mcp_loader:
+            raise RuntimeError(
+                "MCP loader callback not set. Call set_mcp_loader() first."
+            )
+
+        session = self.sessions.get(session_id)
+        if not session:
+            raise ValueError(f"Unknown session: {session_id}")
+
+        results = {}
+
+        for mcp_name in mcp_names:
+            metadata = self.mcp_registry.get(mcp_name)
+            if not metadata:
+                logger.error(f"Unknown MCP: {mcp_name}")
+                results[mcp_name] = False
+                continue
+
+            try:
+                # Call loader callback
+                success = await self.mcp_loader(mcp_name, metadata)
+
+                if success:
+                    session.add_mcp(mcp_name, is_dynamic=True)
+                    logger.info(f"✓ Hot-loaded MCP: {mcp_name}")
+                else:
+                    logger.warning(f"✗ Failed to load MCP: {mcp_name}")
+
+                results[mcp_name] = success
+
+            except Exception as e:
+                logger.error(f"Error loading MCP {mcp_name}: {e}")
+                results[mcp_name] = False
+
+        return results
+
+    def create_session(
+        self,
+        agent_id: str,
+        session_id: str,
+        baseline_mcps: List[str]
+    ) -> MCPSession:
+        """
+        Create a new session for an agent.
+
+        Args:
+            agent_id: Agent identifier
+            session_id: Unique session identifier
+            baseline_mcps: MCPs loaded from system prompt
+
+        Returns:
+            Created session
+        """
+        session = MCPSession(
+            agent_id=agent_id,
+            session_id=session_id
+        )
+
+        # Mark baseline MCPs as loaded
+        for mcp_name in baseline_mcps:
+            session.add_mcp(mcp_name, is_dynamic=False)
+
+        self.sessions[session_id] = session
+
+        logger.info(
+            f"Created session {session_id} for agent {agent_id} "
+            f"with {len(baseline_mcps)} baseline MCPs"
+        )
+
+        return session
+
+    def get_session(self, session_id: str) -> Optional[MCPSession]:
+        """Get session by ID."""
+        return self.sessions.get(session_id)
+
+    def close_session(self, session_id: str) -> None:
+        """Close and remove a session."""
+        if session_id in self.sessions:
+            del self.sessions[session_id]
+            logger.info(f"Closed session {session_id}")
+
+    async def auto_select_for_query(
+        self,
+        user_query: str,
+        session_id: str,
+        agent_permissions: Set[str],
+        auto_load: bool = True,
+        max_new_mcps: int = 3
+    ) -> List[str]:
+        """
+        Convenience method: select AND load MCPs for a query in one call.
+
+        Args:
+            user_query: User's question
+            session_id: Session ID
+            agent_permissions: Agent permissions
+            auto_load: If True, automatically load selected MCPs
+            max_new_mcps: Maximum new MCPs to select
+
+        Returns:
+            List of newly loaded MCP names
+        """
+        # Select MCPs for query
+        new_mcps = await self.select_mcps_for_query(
+            user_query=user_query,
+            session_id=session_id,
+            agent_permissions=agent_permissions,
+            max_new_mcps=max_new_mcps
+        )
+
+        if not new_mcps:
+            return []
+
+        # Auto-load if requested
+        if auto_load and self.mcp_loader:
+            results = await self.load_mcps_dynamically(
+                session_id=session_id,
+                mcp_names=new_mcps
+            )
+            # Return only successfully loaded MCPs
+            return [name for name, success in results.items() if success]
+        else:
+            return new_mcps
+
     def extract_capabilities(self, text: str) -> Set[str]:
         """
         Extract capability keywords from text.
@@ -243,17 +550,21 @@ class MCPSelectionEngine:
         text = text.lower()
         capabilities = set()
 
-        # Common capability patterns
+        # Common capability patterns (expanded for query detection)
         patterns = {
-            "data": [r"\bdata\b", r"\bdatabase\b", r"\bquery\b", r"\bsql\b"],
-            "computation": [r"\bcalculat\w*", r"\bcompute\b", r"\bmath\b", r"\bstatistic\w*"],
-            "files": [r"\bfile\b", r"\bread\b", r"\bwrite\b", r"\bstorage\b"],
-            "network": [r"\bapi\b", r"\bhttp\b", r"\brequest\b", r"\bweb\b"],
-            "weather": [r"\bweather\b", r"\bforecast\b", r"\btemperature\b"],
-            "email": [r"\bemail\b", r"\bsend\b.*\bmessage\b", r"\bsmtp\b"],
-            "visualization": [r"\bplot\b", r"\bchart\b", r"\bgraph\b", r"\bvisuali\w*"],
-            "git": [r"\bgit\b", r"\bversion control\b", r"\brepository\b"],
-            "code": [r"\bcode\b", r"\bexecute\b", r"\brun\b.*\bscript\b"],
+            "data": [r"\bdata\b", r"\bdatabase\b", r"\bquery\b", r"\bsql\b", r"\btable\b", r"\bselect\b"],
+            "computation": [r"\bcalculat\w*", r"\bcompute\b", r"\bmath\w*", r"\bstatistic\w*", r"\baverage\b", r"\bsum\b", r"\bmean\b"],
+            "files": [r"\bfile\b", r"\bread\b", r"\bwrite\b", r"\bstorage\b", r"\bdirectory\b", r"\bfolder\b"],
+            "filesystem": [r"\bfile\b", r"\bread\b", r"\bwrite\b", r"\bstorage\b", r"\bdirectory\b", r"\bfolder\b"],
+            "network": [r"\bapi\b", r"\bhttp\b", r"\brequest\b", r"\bweb\b", r"\bfetch\b", r"\bdownload\b"],
+            "weather": [r"\bweather\b", r"\bforecast\b", r"\btemperature\b", r"\bclimate\b", r"\brain\b", r"\bsun\b"],
+            "email": [r"\bemail\b", r"\bsend\b.*\bmessage\b", r"\bsmtp\b", r"\bmail\b", r"\bnotify\b"],
+            "communication": [r"\bemail\b", r"\bsend\b.*\bmessage\b", r"\bsmtp\b", r"\bmail\b", r"\bnotify\b", r"\bslack\b", r"\bmessage\b"],
+            "visualization": [r"\bplot\b", r"\bchart\b", r"\bgraph\b", r"\bvisuali\w*", r"\bdraw\b", r"\bdiagram\b"],
+            "git": [r"\bgit\b", r"\bversion control\b", r"\brepository\b", r"\bcommit\b", r"\bbranch\b", r"\brepo\b"],
+            "code": [r"\bcode\b", r"\bexecute\b", r"\brun\b.*\bscript\b", r"\bpython\b", r"\bjavascript\b"],
+            "search": [r"\bsearch\b", r"\bfind\b", r"\blookup\b", r"\bgoogle\b", r"\bweb\s+search\b"],
+            "slack": [r"\bslack\b", r"\bchannel\b", r"\bmessage\b.*\bslack\b"],
         }
 
         for capability, regex_list in patterns.items():
