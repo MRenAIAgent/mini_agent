@@ -1,0 +1,211 @@
+# MCP Registry Configuration
+#
+# Defines available MCP servers with their capabilities, permissions,
+# and connection details for the MCP Selection Engine.
+
+mcp_servers:
+  calculator:
+    description: "Performs mathematical calculations, statistical analysis, and algebraic operations"
+    categories:
+      - "computation"
+      - "math"
+    capabilities:
+      - "arithmetic"
+      - "statistics"
+      - "algebra"
+      - "trigonometry"
+    required_permissions: []
+    risk_level: "low"
+    connection:
+      server_path: "/usr/local/bin/mcp-calculator"
+      transport: "stdio"
+      server_args: []
+      environment_vars: {}
+
+  weather:
+    description: "Retrieves current weather conditions and forecasts from external APIs"
+    categories:
+      - "api"
+      - "data"
+    capabilities:
+      - "weather"
+      - "forecast"
+      - "temperature"
+      - "location"
+    required_permissions:
+      - "read:api"
+    risk_level: "low"
+    connection:
+      server_path: "/usr/local/bin/mcp-weather"
+      transport: "stdio"
+      server_args: []
+      environment_vars:
+        API_KEY_ENV: "WEATHER_API_KEY"
+
+  database:
+    description: "Executes SQL queries against PostgreSQL database for data retrieval and analysis"
+    categories:
+      - "data"
+      - "storage"
+      - "database"
+    capabilities:
+      - "sql"
+      - "query"
+      - "database"
+      - "postgres"
+    required_permissions:
+      - "read:database"
+      - "write:database"
+    risk_level: "high"
+    connection:
+      server_path: "/usr/local/bin/mcp-postgres"
+      transport: "stdio"
+      server_args:
+        - "--readonly"
+      environment_vars:
+        DB_HOST: "localhost"
+        DB_PORT: "5432"
+        DB_NAME: "analytics"
+
+  filesystem:
+    description: "Read and write files on local filesystem with path restrictions"
+    categories:
+      - "storage"
+      - "files"
+    capabilities:
+      - "read_file"
+      - "write_file"
+      - "list_directory"
+      - "file_info"
+    required_permissions:
+      - "read:files"
+      - "write:files"
+    risk_level: "medium"
+    connection:
+      server_path: "/usr/local/bin/mcp-fs"
+      transport: "stdio"
+      server_args:
+        - "--base-dir=/workspace"
+      environment_vars: {}
+
+  git:
+    description: "Version control operations including status, commit, branch, and log"
+    categories:
+      - "development"
+      - "version_control"
+    capabilities:
+      - "git"
+      - "version_control"
+      - "commit"
+      - "branch"
+      - "repository"
+    required_permissions:
+      - "read:git"
+      - "write:git"
+    risk_level: "medium"
+    connection:
+      server_path: "/usr/local/bin/mcp-git"
+      transport: "stdio"
+      server_args: []
+      environment_vars: {}
+
+  email:
+    description: "Send emails via SMTP with template support and attachment handling"
+    categories:
+      - "communication"
+      - "network"
+    capabilities:
+      - "email"
+      - "smtp"
+      - "send_message"
+    required_permissions:
+      - "send:email"
+    risk_level: "high"
+    connection:
+      server_path: "/usr/local/bin/mcp-email"
+      transport: "stdio"
+      server_args: []
+      environment_vars:
+        SMTP_HOST: "smtp.company.com"
+        SMTP_PORT: "587"
+
+  code_executor:
+    description: "Execute Python code in isolated sandbox environment with timeout protection"
+    categories:
+      - "development"
+      - "computation"
+    capabilities:
+      - "code"
+      - "execute"
+      - "python"
+      - "sandbox"
+    required_permissions:
+      - "execute:code"
+    risk_level: "high"
+    connection:
+      server_path: "/usr/local/bin/mcp-code-exec"
+      transport: "stdio"
+      server_args:
+        - "--sandbox"
+        - "--timeout=30"
+      environment_vars: {}
+
+  visualization:
+    description: "Create charts, graphs, and visualizations using matplotlib and plotly"
+    categories:
+      - "visualization"
+      - "data"
+    capabilities:
+      - "plot"
+      - "chart"
+      - "graph"
+      - "visualization"
+      - "matplotlib"
+    required_permissions:
+      - "create:visualization"
+    risk_level: "low"
+    connection:
+      server_path: "/usr/local/bin/mcp-viz"
+      transport: "stdio"
+      server_args: []
+      environment_vars: {}
+
+  web_search:
+    description: "Search the web and retrieve content from websites"
+    categories:
+      - "api"
+      - "search"
+      - "network"
+    capabilities:
+      - "search"
+      - "web"
+      - "scraping"
+      - "api"
+    required_permissions:
+      - "read:web"
+    risk_level: "medium"
+    connection:
+      server_path: "/usr/local/bin/mcp-web"
+      transport: "stdio"
+      server_args: []
+      environment_vars:
+        SEARCH_API_KEY_ENV: "SEARCH_API_KEY"
+
+  slack:
+    description: "Send messages and interact with Slack workspace"
+    categories:
+      - "communication"
+      - "api"
+    capabilities:
+      - "slack"
+      - "messaging"
+      - "notification"
+    required_permissions:
+      - "send:slack"
+    risk_level: "medium"
+    connection:
+      server_path: "/usr/local/bin/mcp-slack"
+      transport: "stdio"
+      server_args: []
+      environment_vars:
+        SLACK_TOKEN_ENV: "SLACK_BOT_TOKEN"
