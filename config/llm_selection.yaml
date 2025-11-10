@@ -1,0 +1,81 @@
+# LLM-Based MCP Selection Configuration
+#
+# Uses small language models to intelligently select MCPs based on user queries.
+# Provides much better accuracy than regex matching.
+
+llm_selector:
+  # Enable LLM-based selection
+  enabled: true
+
+  # Model configuration
+  model:
+    # Model provider: "ollama" (local), "openai" (API), "anthropic" (API), "google" (API)
+    type: "ollama"
+
+    # Specific model to use
+    # Ollama: "phi3:mini", "llama3.2:3b", "gemma2:2b", "qwen2.5:3b"
+    # OpenAI: "gpt-4o-mini", "gpt-3.5-turbo"
+    # Anthropic: "claude-3-haiku-20240307"
+    # Google: "gemini-1.5-flash"
+    name: "phi3:mini"
+
+    # Maximum time to wait for LLM response (seconds)
+    timeout_seconds: 5
+
+    # Use few-shot prompting (improves accuracy)
+    use_few_shot: true
+
+  # Selection parameters
+  selection:
+    # Maximum MCPs to select per query
+    max_mcps_per_query: 3
+
+    # Minimum confidence to accept LLM recommendation (0.0-1.0)
+    # Set higher (0.7-0.9) for production
+    # Set lower (0.3-0.5) for testing
+    confidence_threshold: 0.7
+
+  # Fallback strategy
+  fallback:
+    # Enable fallback to regex on LLM errors
+    enabled: true
+
+    # Fallback method: "regex" (keyword matching)
+    method: "regex"
+
+  # Performance optimization
+  cache:
+    # Cache LLM selection results
+    enabled: true
+
+    # Time to live for cached results (seconds)
+    ttl_seconds: 300
+
+    # Maximum number of cached entries
+    max_entries: 1000
+
+# Recommended model configurations for different use cases
+
+# Development (fastest, local)
+# model:
+#   type: "ollama"
+#   name: "phi3:mini"
+#   timeout_seconds: 3
+
+# Production (best accuracy, local)
+# model:
+#   type: "ollama"
+#   name: "llama3.2:3b"
+#   timeout_seconds: 5
+
+# Production (API, excellent accuracy)
+# model:
+#   type: "openai"
+#   name: "gpt-4o-mini"
+#   timeout_seconds: 10
+
+# Cost-optimized (API, cheapest)
+# model:
+#   type: "google"
+#   name: "gemini-1.5-flash"
+#   timeout_seconds: 10
