@@ -12,6 +12,7 @@ from .optimization_strategies import (
     CoordinateAscentStrategy,
     BayesianStrategy
 )
+from .mipro_bootstrap import MIPROBootstrapStrategy
 from .metrics import OptimizationMetric, AccuracyMetric
 
 
@@ -204,10 +205,11 @@ class CoreOptimizer:
 
         strategy_map = {
             "bootstrap": BootstrapStrategy(),
+            "mipro_bootstrap": MIPROBootstrapStrategy(),  # MIPROv2-style validated bootstrap
             "coordinate_ascent": CoordinateAscentStrategy(),
             "copro": CoordinateAscentStrategy(),  # Alias
             "bayesian": BayesianStrategy(),
-            "mipro": BayesianStrategy()  # Simplified version
+            "mipro": MIPROBootstrapStrategy()  # Alias for MIPROv2-style (was simplified Bayesian)
         }
 
         if strategy in strategy_map:
