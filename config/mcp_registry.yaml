@@ -209,3 +209,31 @@ mcp_servers:
       server_args: []
       environment_vars:
         SLACK_TOKEN_ENV: "SLACK_BOT_TOKEN"
+
+  shopify:
+    description: "Interact with Shopify store for e-commerce operations including products, orders, customers, and inventory management"
+    categories:
+      - "ecommerce"
+      - "api"
+      - "business"
+    capabilities:
+      - "shopify"
+      - "products"
+      - "orders"
+      - "customers"
+      - "inventory"
+      - "analytics"
+      - "store_management"
+    required_permissions:
+      - "read:shopify"
+      - "write:shopify"
+    risk_level: "high"
+    connection:
+      server_path: "npx"
+      transport: "stdio"
+      server_args:
+        - "-y"
+        - "@shopify/mcp-server-shopify"
+      environment_vars:
+        SHOPIFY_STORE_URL_ENV: "SHOPIFY_STORE_URL"
+        SHOPIFY_ACCESS_TOKEN_ENV: "SHOPIFY_ACCESS_TOKEN"

@@ -145,3 +145,77 @@ policies:
         action: "require_approval"
         reason: "Administrative tools require approval"
         priority: 87
+
+  - name: "shopify_protection"
+    description: "Security policies specific to Shopify e-commerce operations"
+    enabled: true
+    rules:
+      - name: "protect_customer_pii"
+        condition: "tool_category == 'ecommerce' and ('customer' in tool_name.lower() or context.has_data_label('customer_data'))"
+        action: "require_approval"
+        reason: "Customer data access requires approval for privacy compliance"
+        priority: 95
+        risk_impact: 0.8
+
+      - name: "protect_payment_data"
+        condition: "tool_category == 'ecommerce' and (context.has_data_label('payment_info') or 'payment' in str(arguments).lower())"
+        action: "deny"
+        reason: "Direct payment data access is not allowed - use secure payment gateway"
+        priority: 100
+        risk_impact: 1.0
+
+      - name: "require_approval_price_changes"
+        condition: "tool_category == 'ecommerce' and 'price' in str(arguments).lower() and 'write:shopify' in str(tool_permissions)"
+        action: "require_approval"
+        reason: "Price modifications require business approval"
+        priority: 90
+        risk_impact: 0.7
+
+      - name: "limit_bulk_operations"
+        condition: "tool_category == 'ecommerce' and ('bulk' in tool_name.lower() or (arguments.get('limit', 0) > 100))"
+        action: "require_approval"
+        reason: "Bulk operations require approval to prevent accidental mass changes"
+        priority: 88
+        risk_impact: 0.6
+
+      - name: "protect_order_modifications"
+        condition: "tool_category == 'ecommerce' and 'order' in tool_name.lower() and 'write:shopify' in str(tool_permissions)"
+        action: "require_approval"
+        reason: "Order modifications require approval for audit compliance"
+        priority: 92
+        risk_impact: 0.75
+
+      - name: "block_customer_export_without_permission"
+        condition: "tool_category == 'ecommerce' and 'export' in tool_name.lower() and 'customer' in tool_name.lower() and 'export:customer_data' not in str(context.permissions)"
+        action: "deny"
+        reason: "Customer data export requires explicit export permission"
+        priority: 98
+        risk_impact: 0.9
+
+      - name: "rate_limit_shopify_api"
+        condition: "tool_category == 'ecommerce' and context.call_count > 40"
+        action: "rate_limit"
+        reason: "Shopify API rate limit - max 40 calls per session to comply with Shopify limits"
+        priority: 85
+        risk_impact: 0.3
+
+      - name: "protect_product_deletion"
+        condition: "tool_category == 'ecommerce' and 'delete' in tool_name.lower() and 'product' in tool_name.lower()"
+        action: "require_approval"
+        reason: "Product deletion requires approval to prevent accidental data loss"
+        priority: 93
+        risk_impact: 0.8
+
+      - name: "block_inventory_negative"
+        condition: "tool_category == 'ecommerce' and 'inventory' in tool_name.lower() and arguments.get('inventory_quantity', 0) < 0"
+        action: "deny"
+        reason: "Negative inventory values are not allowed"
+        priority: 89
+        risk_impact: 0.5
+
+      - name: "require_approval_store_settings"
+        condition: "tool_category == 'ecommerce' and ('settings' in tool_name.lower() or 'config' in tool_name.lower())"
+        action: "require_approval"
+        reason: "Store configuration changes require approval"
+        priority: 94
+        risk_impact: 0.85
