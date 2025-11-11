@@ -384,7 +384,7 @@ class MIPROBootstrapStrategy(OptimizationStrategy):
             # Simple TF-IDF-like embedding
             return self._simple_embedding(text)
 
-    def _simple_embedding(self, text: str) -> np.ndarray:
+    def _simple_embedding(self, text: str):
         """Simple word-based embedding (TF-IDF-like)."""
         # Convert text to lowercase word tokens
         words = text.lower().split()
@@ -402,7 +402,11 @@ class MIPROBootstrapStrategy(OptimizationStrategy):
         # Normalize
         norm = np.linalg.norm(embedding)
         if norm > 0:
-            embedding = embedding / norm
+            if HAS_NUMPY:
+                embedding = embedding / norm
+            else:
+                # Manual normalization for list
+                embedding = [x / norm for x in embedding]
 
         return embedding
 
