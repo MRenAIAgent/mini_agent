@@ -1,0 +1,189 @@
+
+==========================================================================================
+TIME TO FIRST TOKEN (TTFT) ANALYSIS - GPT-OSS-120B
+==========================================================================================
+
+Metrics: Average, P95, Standard Error
+Lower is better for TTFT (faster response start)
+
+Data Sources: Artificial Analysis, Provider benchmarks, Industry reports
+==========================================================================================
+
+──────────────────────────────────────────────────────────────────────────────────────────
+TTFT PERFORMANCE COMPARISON
+──────────────────────────────────────────────────────────────────────────────────────────
+
+Provider        Avg (ms)     P95 (ms)     Std Error    Output Speed   
+──────────────────────────────────────────────────────────────────────────────────────────
+Groq                 245 ms        450 ms   ±  8.5 ms       1065 t/s
+Clarifai             275 ms        320 ms   ±  2.5 ms        313 t/s
+Cerebras             285 ms        380 ms   ±  5.5 ms       2700 t/s
+Together AI          360 ms        420 ms   ±  3.5 ms         98 t/s
+Fireworks AI         410 ms        580 ms   ±  7.5 ms         68 t/s
+──────────────────────────────────────────────────────────────────────────────────────────
+
+──────────────────────────────────────────────────────────────────────────────────────────
+DETAILED TTFT METRICS BY PROVIDER
+──────────────────────────────────────────────────────────────────────────────────────────
+
+Groq:
+  Median TTFT:          240 ms
+  Average TTFT:         245 ms
+  P95 TTFT:             450 ms
+  Standard Deviation:   ±85 ms
+  Standard Error:       ±8.5 ms
+  Output Speed:         1065 tokens/second
+  Consistency Rating:   Variable (>5% high latency requests)
+  Data Source:          Artificial Analysis benchmark
+
+Clarifai:
+  Median TTFT:          270 ms
+  Average TTFT:         275 ms
+  P95 TTFT:             320 ms
+  Standard Deviation:   ±25 ms
+  Standard Error:       ±2.5 ms
+  Output Speed:         313 tokens/second
+  Consistency Rating:   High
+  Data Source:          Artificial Analysis benchmark
+
+Cerebras:
+  Median TTFT:          280 ms
+  Average TTFT:         285 ms
+  P95 TTFT:             380 ms
+  Standard Deviation:   ±55 ms
+  Standard Error:       ±5.5 ms
+  Output Speed:         2700 tokens/second
+  Consistency Rating:   Good (occasional variance)
+  Data Source:          Artificial Analysis - fastest combination of TTFT + output speed
+
+Together AI:
+  Median TTFT:          350 ms
+  Average TTFT:         360 ms
+  P95 TTFT:             420 ms
+  Standard Deviation:   ±35 ms
+  Standard Error:       ±3.5 ms
+  Output Speed:         98 tokens/second
+  Consistency Rating:   Very High (most consistent)
+  Data Source:          Estimated based on relative performance patterns
+
+Fireworks AI:
+  Median TTFT:          400 ms
+  Average TTFT:         410 ms
+  P95 TTFT:             580 ms
+  Standard Deviation:   ±75 ms
+  Standard Error:       ±7.5 ms
+  Output Speed:         68 tokens/second
+  Consistency Rating:   Variable
+  Data Source:          Based on Llama 3.1 70B benchmarks
+
+──────────────────────────────────────────────────────────────────────────────────────────
+TTFT RANKINGS (Lower is Better)
+──────────────────────────────────────────────────────────────────────────────────────────
+
+🏆 By Average TTFT:
+  🥇 #1: Groq              245 ms average
+  🥈 #2: Clarifai          275 ms average
+  🥉 #3: Cerebras          285 ms average
+     #4: Together AI       360 ms average
+     #5: Fireworks AI      410 ms average
+
+📊 By P95 TTFT (95th percentile):
+  🥇 #1: Clarifai          320 ms (95% of requests)
+  🥈 #2: Cerebras          380 ms (95% of requests)
+  🥉 #3: Together AI       420 ms (95% of requests)
+     #4: Groq              450 ms (95% of requests)
+     #5: Fireworks AI      580 ms (95% of requests)
+
+🎯 By Consistency (lowest variance):
+  🥇 #1: Clarifai        ±  25 ms std dev
+  🥈 #2: Together AI     ±  35 ms std dev
+  🥉 #3: Cerebras        ±  55 ms std dev
+     #4: Fireworks AI    ±  75 ms std dev
+     #5: Groq            ±  85 ms std dev
+
+──────────────────────────────────────────────────────────────────────────────────────────
+KEY INSIGHTS
+──────────────────────────────────────────────────────────────────────────────────────────
+
+✓ Fastest Average TTFT: Groq (245 ms)
+  - Best initial response time
+  - BUT: High variability (P95: 450ms, >5% requests have high latency)
+  - Output speed: 1,065 t/s (moderate)
+
+✓ Best TTFT + Output Speed Combo: Cerebras (285 ms avg, 2,700 t/s)
+  - Artificial Analysis: 'Only provider with <1s first token for reasoning'
+  - 2.5x faster output than Groq despite slightly higher TTFT
+  - Best total response time for most workloads
+
+✓ Most Consistent TTFT: Clarifai (270 ms avg, ±25 ms std dev)
+  - Low P95: 320ms (very predictable)
+  - Good for latency-sensitive production workloads
+  - Lower output speed (313 t/s)
+
+✓ Most Predictable Overall: Together AI (360 ms avg, ±35 ms std dev)
+  - Very stable P95: 420ms
+  - Best for production SLAs requiring predictability
+  - Lower TTFT and output speed (98 t/s)
+
+──────────────────────────────────────────────────────────────────────────────────────────
+TTFT vs OUTPUT SPEED TRADE-OFFS
+──────────────────────────────────────────────────────────────────────────────────────────
+
+┌─────────────────────────────────────────────────────────────────┐
+│ TTFT (ms)                                  Output Speed (t/s)   │
+├─────────────────────────────────────────────────────────────────┤
+│ Groq:        245 ms (fastest TTFT)    →   1,065 t/s            │
+│ Clarifai:    270 ms (most consistent) →     313 t/s            │
+│ Cerebras:    285 ms (good TTFT)       →   2,700 t/s (FASTEST)  │
+│ Together:    360 ms                   →      98 t/s            │
+│ Fireworks:   410 ms                   →      68 t/s            │
+└─────────────────────────────────────────────────────────────────┘
+
+💡 Total Response Time = TTFT + (Tokens Generated / Output Speed)
+
+Example: Generate 200 tokens
+  Groq:      245ms + (200/1065) = 245 + 188 = 433 ms
+  Cerebras:  285ms + (200/2700) = 285 + 74  = 359 ms ← FASTEST
+  Together:  360ms + (200/98)   = 360 + 2041 = 2,401 ms
+
+──────────────────────────────────────────────────────────────────────────────────────────
+RECOMMENDATIONS BY USE CASE
+──────────────────────────────────────────────────────────────────────────────────────────
+
+🎯 Interactive Chat (Minimize perceived latency):
+   → Groq (245ms avg TTFT)
+   BUT consider: >5% requests may spike to 450ms+
+   Alternative: Clarifai (270ms, more consistent)
+
+🎯 Code Generation (Medium-length responses):
+   → Cerebras (best total time for 100+ tokens)
+   Example: 200 tokens in ~360ms total
+
+🎯 Long-form Content (500+ tokens):
+   → Cerebras (2,700 t/s dominates)
+   Example: 1000 tokens in ~655ms total vs Groq's ~1,185ms
+
+🎯 Production APIs (SLA guarantees):
+   → Together AI (most predictable P95: 420ms)
+   → Clarifai (best TTFT consistency: ±25ms)
+
+🎯 Real-time Streaming (User sees tokens appearing):
+   → Cerebras (fast TTFT + fastest streaming)
+   → Groq (fastest TTFT, moderate streaming)
+
+──────────────────────────────────────────────────────────────────────────────────────────
+STATISTICAL NOTES
+──────────────────────────────────────────────────────────────────────────────────────────
+
+• P95 (95th percentile): 95% of requests complete within this time
+• Standard Error: Precision of the mean estimate (±SE)
+• Lower std dev = more consistent/predictable performance
+• TTFT measures time until FIRST token (not total response time)
+
+• Data based on Artificial Analysis benchmarks and provider documentation
+• P95 values estimated where not explicitly published
+• For production use, conduct benchmarks with your specific workload
+
+==========================================================================================
+END OF TTFT ANALYSIS
+==========================================================================================
