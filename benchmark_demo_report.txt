@@ -1,0 +1,138 @@
+
+================================================================================
+BENCHMARK RESULTS - GPT-OSS-120B COMPARISON (DEMO)
+================================================================================
+
+Test Date: 2025-11-16 19:01:57
+Model: gpt-oss-120b
+Providers Tested: 3
+Test Prompts: 3
+Note: Based on actual published benchmark data
+
+────────────────────────────────────────────────────────────────────────────────
+OVERALL PERFORMANCE COMPARISON
+────────────────────────────────────────────────────────────────────────────────
+
+Provider             Avg Speed (t/s)    Avg Time (s)    Avg Tokens  
+────────────────────────────────────────────────────────────────────────────────
+Cerebras                 181.78 t/s         0.859 s         156.7
+Groq                     151.27 t/s         1.033 s         156.7
+Together AI               96.28 t/s         1.623 s         156.7
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+DETAILED METRICS BY PROVIDER
+────────────────────────────────────────────────────────────────────────────────
+
+Cerebras:
+  Speed (tokens/sec):  181.78 t/s
+  Min Speed:           178.42 t/s
+  Max Speed:           188.13 t/s
+  Std Dev:             5.50 t/s
+  Avg Response Time:   0.859 s
+  Avg Tokens:          156.7
+  Consistency:         High
+
+Groq:
+  Speed (tokens/sec):  151.27 t/s
+  Min Speed:           146.35 t/s
+  Max Speed:           160.58 t/s
+  Std Dev:             8.07 t/s
+  Avg Response Time:   1.033 s
+  Avg Tokens:          156.7
+  Consistency:         High
+
+Together AI:
+  Speed (tokens/sec):  96.28 t/s
+  Min Speed:           94.49 t/s
+  Max Speed:           99.67 t/s
+  Std Dev:             2.93 t/s
+  Avg Response Time:   1.623 s
+  Avg Tokens:          156.7
+  Consistency:         High
+
+────────────────────────────────────────────────────────────────────────────────
+SPEED RANKING
+────────────────────────────────────────────────────────────────────────────────
+🥇 #1: Cerebras - 181.78 tokens/second
+🥈 #2: Groq - 151.27 tokens/second
+🥉 #3: Together AI - 96.28 tokens/second
+
+────────────────────────────────────────────────────────────────────────────────
+RESPONSE QUALITY SAMPLES
+────────────────────────────────────────────────────────────────────────────────
+
+Prompt: 'Explain quantum computing in exactly 100 words.'
+
+
+Cerebras:
+Quantum computing harnesses quantum mechanics principles like superposition and entanglement to process information. Unlike classical bits, quantum bits (qubits) can exist in multiple states simultaneously. This enables quantum computers to solve certain complex problems exponentially faster than classical computers, particularly in cryptography, drug discovery, and optimization. However, quantum systems are extremely fragile and require near-absolute-zero temperatures to maintain quantum states.
+
+
+Groq:
+Quantum computing leverages quantum mechanical phenomena such as superposition and entanglement to perform computations. Qubits, the fundamental units of quantum information, can represent 0 and 1 simultaneously, unlike classical bits. This parallel processing capability allows quantum computers to tackle certain problems much faster than traditional computers. Applications include cryptographic analysis, molecular simulation, and complex optimization. Current challenges include maintaining quantum coherence and error correction.
+
+
+Together AI:
+Quantum computing uses principles of quantum mechanics to process information differently than classical computers. Instead of bits, it uses qubits which can be in superposition, representing both 0 and 1 at once. Quantum entanglement allows qubits to be correlated in ways impossible classically. This enables solving certain problems exponentially faster, like factoring large numbers and simulating quantum systems. Major challenges include error rates and maintaining quantum states.
+
+────────────────────────────────────────────────────────────────────────────────
+COMPARATIVE ANALYSIS
+────────────────────────────────────────────────────────────────────────────────
+
+🏆 Fastest: Cerebras at 181.78 t/s
+   Response time: 0.859s average
+
+   Cerebras is 1.20x faster than Groq
+   Cerebras is 1.89x faster than Together AI
+
+🎯 Most Consistent: Together AI (std dev: 2.93 t/s)
+
+────────────────────────────────────────────────────────────────────────────────
+KEY INSIGHTS
+────────────────────────────────────────────────────────────────────────────────
+
+✓ Cerebras:
+  - Fastest overall with custom WSE-3 silicon
+  - 185 t/s average (wafer-scale architecture advantage)
+  - Best for latency-critical applications
+  - Moderate consistency (some variance at high speeds)
+
+✓ Groq:
+  - Second fastest with LPU architecture
+  - 156 t/s average (custom inference processor)
+  - Good for speed-focused workloads
+  - Known variability: >5% requests may have high latency
+
+✓ Together AI:
+  - Most consistent performance
+  - 98 t/s average (GPU-optimized infrastructure)
+  - Best for reliable, predictable latency
+  - Good balance of speed and stability
+
+────────────────────────────────────────────────────────────────────────────────
+RECOMMENDATIONS
+────────────────────────────────────────────────────────────────────────────────
+
+🎯 Use Case Recommendations:
+
+  Real-time chat applications → Cerebras (fastest response)
+  Code generation/completion → Groq (speed + batch discount)
+  Production APIs with SLA → Together AI (most consistent)
+  High-volume batch processing → Groq (50% batch discount)
+  Cost-sensitive projects → Together AI (good price/performance)
+
+📊 Performance vs Reliability:
+  Maximum Speed: Cerebras (185 t/s)
+  Best Consistency: Together AI (±8 t/s std dev)
+  Best Balance: Groq (156 t/s with good pricing)
+
+================================================================================
+END OF REPORT
+================================================================================
+
+Note: This demo uses simulated results based on actual published
+benchmark data from Artificial Analysis and provider documentation.
+For live testing with real API calls, use benchmark_llm_apis.py
+with your API keys set.
+================================================================================
