@@ -13,6 +13,7 @@ from .optimization_strategies import (
     CoordinateAscentStrategy,
     BayesianStrategy
 )
+from .mipro_bootstrap import MIPROBootstrapStrategy
 from .metrics import OptimizationMetric, AccuracyMetric, EfficiencyMetric
 
 __all__ = [
@@ -21,6 +22,7 @@ __all__ = [
     "TrainingExample",
     "OptimizationResult",
     "BootstrapStrategy",
+    "MIPROBootstrapStrategy",
     "CoordinateAscentStrategy",
     "BayesianStrategy",
     "OptimizationMetric",
