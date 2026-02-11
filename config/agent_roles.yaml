@@ -1,0 +1,200 @@
+# Agent Roles Configuration
+#
+# Defines agent roles with their permissions, allowed MCP categories,
+# and risk tolerance levels.
+
+roles:
+  analyst:
+    description: "Data analyst with read-only access to data sources"
+    permissions:
+      - "read:database"
+      - "read:files"
+      - "execute:calculations"
+      - "create:visualization"
+      - "read:api"
+    allowed_mcp_categories:
+      - "data"
+      - "computation"
+      - "visualization"
+      - "api"
+    denied_mcp_categories:
+      - "communication"
+      - "development"
+    risk_tolerance: "low"
+    max_concurrent_mcps: 5
+    rate_limits:
+      api_calls_per_session: 100
+      high_risk_calls_per_session: 0
+    require_mfa: false
+    allowed_environments:
+      - "development"
+      - "staging"
+      - "production"
+
+  developer:
+    description: "Software developer with code execution and version control rights"
+    permissions:
+      - "read:files"
+      - "write:files"
+      - "execute:code"
+      - "read:git"
+      - "write:git"
+      - "read:database"
+      - "create:visualization"
+    allowed_mcp_categories:
+      - "development"
+      - "version_control"
+      - "files"
+      - "computation"
+      - "data"
+    denied_mcp_categories:
+      - "communication"
+    risk_tolerance: "medium"
+    max_concurrent_mcps: 7
+    rate_limits:
+      api_calls_per_session: 200
+      high_risk_calls_per_session: 10
+    require_mfa: false
+    allowed_environments:
+      - "development"
+      - "staging"
+
+  reporter:
+    description: "Content reporter with read access and communication capabilities"
+    permissions:
+      - "read:database"
+      - "read:files"
+      - "read:api"
+      - "create:visualization"
+      - "send:email"
+      - "send:slack"
+    allowed_mcp_categories:
+      - "data"
+      - "visualization"
+      - "communication"
+    denied_mcp_categories:
+      - "development"
+      - "version_control"
+    risk_tolerance: "low"
+    max_concurrent_mcps: 4
+    rate_limits:
+      api_calls_per_session: 50
+      high_risk_calls_per_session: 5
+      email_sends_per_session: 20
+    require_mfa: false
+    allowed_environments:
+      - "development"
+      - "staging"
+      - "production"
+
+  admin:
+    description: "Administrator with full access to all tools and environments"
+    permissions:
+      - "*"  # Wildcard grants all permissions
+    allowed_mcp_categories:
+      - "*"  # All categories
+    denied_mcp_categories: []
+    risk_tolerance: "high"
+    max_concurrent_mcps: 10
+    rate_limits:
+      api_calls_per_session: 1000
+      high_risk_calls_per_session: 100
+      email_sends_per_session: 100
+    require_mfa: true
+    allowed_environments:
+      - "development"
+      - "staging"
+      - "production"
+
+  auditor:
+    description: "Read-only auditor for compliance and security review"
+    permissions:
+      - "read:database"
+      - "read:files"
+      - "read:git"
+      - "read:api"
+    allowed_mcp_categories:
+      - "data"
+      - "files"
+      - "version_control"
+    denied_mcp_categories:
+      - "communication"
+      - "development"
+    risk_tolerance: "low"
+    max_concurrent_mcps: 3
+    rate_limits:
+      api_calls_per_session: 100
+      high_risk_calls_per_session: 0
+    require_mfa: true
+    allowed_environments:
+      - "production"
+
+  automation:
+    description: "Automated agent for scheduled tasks and workflows"
+    permissions:
+      - "read:database"
+      - "read:files"
+      - "write:files"
+      - "execute:calculations"
+      - "create:visualization"
+      - "send:email"
+      - "read:api"
+    allowed_mcp_categories:
+      - "data"
+      - "computation"
+      - "files"
+      - "visualization"
+      - "communication"
+    denied_mcp_categories:
+      - "development"
+    risk_tolerance: "medium"
+    max_concurrent_mcps: 6
+    rate_limits:
+      api_calls_per_session: 500
+      high_risk_calls_per_session: 20
+      email_sends_per_session: 50
+    require_mfa: false
+    allowed_environments:
+      - "production"
+
+  researcher:
+    description: "Research agent with broad read access and computation capabilities"
+    permissions:
+      - "read:database"
+      - "read:files"
+      - "read:web"
+      - "read:api"
+      - "execute:calculations"
+      - "execute:code"
+      - "create:visualization"
+    allowed_mcp_categories:
+      - "data"
+      - "computation"
+      - "visualization"
+      - "api"
+      - "search"
+    denied_mcp_categories:
+      - "communication"
+      - "version_control"
+    risk_tolerance: "medium"
+    max_concurrent_mcps: 8
+    rate_limits:
+      api_calls_per_session: 300
+      high_risk_calls_per_session: 15
+    require_mfa: false
+    allowed_environments:
+      - "development"
+      - "staging"
+
+# Default role settings
+defaults:
+  role: "analyst"  # Default role if none specified
+  max_concurrent_mcps: 5
+  rate_limits:
+    api_calls_per_session: 100
+    high_risk_calls_per_session: 5
+    email_sends_per_session: 10
+  require_mfa: false
+  risk_tolerance: "low"
+  allowed_environments:
+    - "development"

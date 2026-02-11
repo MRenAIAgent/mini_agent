@@ -1,0 +1,221 @@
+# Security Policies Configuration
+#
+# Defines security rules that control MCP tool access and execution.
+# Rules are evaluated in priority order (higher priority first).
+
+policies:
+  - name: "prevent_data_exfiltration"
+    description: "Prevent sending sensitive data over network"
+    enabled: true
+    rules:
+      - name: "block_sensitive_network"
+        condition: "tool_category in ['network', 'api', 'communication'] and context.has_data_label('sensitive')"
+        action: "deny"
+        reason: "Cannot send sensitive data over network"
+        priority: 100
+
+      - name: "block_pii_external"
+        condition: "tool_category in ['email', 'api', 'communication'] and context.has_data_label('pii')"
+        action: "deny"
+        reason: "Cannot send PII (Personally Identifiable Information) to external services"
+        priority: 100
+
+      - name: "block_confidential_communication"
+        condition: "tool_category == 'communication' and context.has_data_label('confidential')"
+        action: "require_approval"
+        reason: "Sending confidential data requires human approval"
+        priority: 95
+
+  - name: "require_approval_for_high_risk"
+    description: "Require human approval for high-risk operations"
+    enabled: true
+    rules:
+      - name: "approve_high_risk_writes"
+        condition: "tool_risk_level == 'high' and 'write' in str(tool_permissions)"
+        action: "require_approval"
+        reason: "High-risk write operations require human approval"
+        priority: 90
+
+      - name: "approve_code_execution"
+        condition: "tool_category == 'development' and 'execute' in str(tool_permissions)"
+        action: "require_approval"
+        reason: "Code execution requires human approval"
+        priority: 92
+
+      - name: "approve_production_modifications"
+        condition: "context.environment == 'production' and tool_category in ['database', 'files']"
+        action: "require_approval"
+        reason: "Production data modifications require approval"
+        priority: 90
+
+      - name: "approve_database_writes"
+        condition: "tool_category == 'database' and 'write:database' in str(tool_permissions)"
+        action: "require_approval"
+        reason: "Database write operations require approval"
+        priority: 88
+
+  - name: "rate_limiting"
+    description: "Prevent excessive API calls and resource abuse"
+    enabled: true
+    rules:
+      - name: "limit_api_calls"
+        condition: "tool_category in ['api', 'network'] and context.call_count > 100"
+        action: "deny"
+        reason: "API rate limit exceeded (100 calls per session)"
+        priority: 80
+
+      - name: "limit_high_risk_calls"
+        condition: "tool_risk_level == 'high' and context.call_count > 10"
+        action: "deny"
+        reason: "High-risk operation rate limit exceeded (10 per session)"
+        priority: 85
+
+      - name: "limit_email_sends"
+        condition: "tool_category == 'communication' and 'email' in tool_name.lower() and context.call_count > 20"
+        action: "deny"
+        reason: "Email rate limit exceeded (20 per session)"
+        priority: 82
+
+  - name: "environment_restrictions"
+    description: "Restrict operations based on environment"
+    enabled: true
+    rules:
+      - name: "no_email_in_dev"
+        condition: "context.environment == 'development' and tool_category == 'communication'"
+        action: "deny"
+        reason: "Email and messaging disabled in development environment"
+        priority: 70
+
+      - name: "no_production_writes_in_dev"
+        condition: "context.environment == 'development' and 'production' in str(arguments)"
+        action: "deny"
+        reason: "Cannot access production resources from development environment"
+        priority: 75
+
+  - name: "role_based_access_control"
+    description: "Enforce role-based permissions"
+    enabled: true
+    rules:
+      - name: "analyst_no_write"
+        condition: "context.agent_role == 'analyst' and 'write' in str(tool_permissions)"
+        action: "deny"
+        reason: "Analyst role does not have write permissions"
+        priority: 60
+
+      - name: "reporter_read_only"
+        condition: "context.agent_role == 'reporter' and tool_category not in ['data', 'visualization']"
+        action: "deny"
+        reason: "Reporter role limited to read and visualization operations"
+        priority: 60
+
+  - name: "data_governance"
+    description: "Enforce data governance and compliance rules"
+    enabled: true
+    rules:
+      - name: "require_audit_for_sensitive"
+        condition: "context.has_data_label('sensitive') and tool_risk_level in ['medium', 'high']"
+        action: "require_approval"
+        reason: "Operations on sensitive data require audit trail approval"
+        priority: 85
+
+      - name: "block_pii_storage"
+        condition: "context.has_data_label('pii') and tool_category == 'storage' and 'write' in str(tool_permissions)"
+        action: "deny"
+        reason: "Cannot store PII without encryption (not yet implemented)"
+        priority: 95
+
+  - name: "security_hardening"
+    description: "General security hardening rules"
+    enabled: true
+    rules:
+      - name: "block_suspicious_arguments"
+        condition: "'DROP TABLE' in str(arguments).upper() or 'DELETE FROM' in str(arguments).upper()"
+        action: "deny"
+        reason: "Detected suspicious SQL patterns in arguments"
+        priority: 98
+
+      - name: "block_path_traversal"
+        condition: "'../' in str(arguments) or '..' in str(arguments)"
+        action: "deny"
+        reason: "Detected path traversal pattern in arguments"
+        priority: 98
+
+      - name: "require_approval_admin_tools"
+        condition: "'admin' in tool_name.lower() or 'sudo' in tool_name.lower()"
+        action: "require_approval"
+        reason: "Administrative tools require approval"
+        priority: 87
+
+  - name: "shopify_protection"
+    description: "Security policies specific to Shopify e-commerce operations"
+    enabled: true
+    rules:
+      - name: "protect_customer_pii"
+        condition: "tool_category == 'ecommerce' and ('customer' in tool_name.lower() or context.has_data_label('customer_data'))"
+        action: "require_approval"
+        reason: "Customer data access requires approval for privacy compliance"
+        priority: 95
+        risk_impact: 0.8
+
+      - name: "protect_payment_data"
+        condition: "tool_category == 'ecommerce' and (context.has_data_label('payment_info') or 'payment' in str(arguments).lower())"
+        action: "deny"
+        reason: "Direct payment data access is not allowed - use secure payment gateway"
+        priority: 100
+        risk_impact: 1.0
+
+      - name: "require_approval_price_changes"
+        condition: "tool_category == 'ecommerce' and 'price' in str(arguments).lower() and 'write:shopify' in str(tool_permissions)"
+        action: "require_approval"
+        reason: "Price modifications require business approval"
+        priority: 90
+        risk_impact: 0.7
+
+      - name: "limit_bulk_operations"
+        condition: "tool_category == 'ecommerce' and ('bulk' in tool_name.lower() or (arguments.get('limit', 0) > 100))"
+        action: "require_approval"
+        reason: "Bulk operations require approval to prevent accidental mass changes"
+        priority: 88
+        risk_impact: 0.6
+
+      - name: "protect_order_modifications"
+        condition: "tool_category == 'ecommerce' and 'order' in tool_name.lower() and 'write:shopify' in str(tool_permissions)"
+        action: "require_approval"
+        reason: "Order modifications require approval for audit compliance"
+        priority: 92
+        risk_impact: 0.75
+
+      - name: "block_customer_export_without_permission"
+        condition: "tool_category == 'ecommerce' and 'export' in tool_name.lower() and 'customer' in tool_name.lower() and 'export:customer_data' not in str(context.permissions)"
+        action: "deny"
+        reason: "Customer data export requires explicit export permission"
+        priority: 98
+        risk_impact: 0.9
+
+      - name: "rate_limit_shopify_api"
+        condition: "tool_category == 'ecommerce' and context.call_count > 40"
+        action: "rate_limit"
+        reason: "Shopify API rate limit - max 40 calls per session to comply with Shopify limits"
+        priority: 85
+        risk_impact: 0.3
+
+      - name: "protect_product_deletion"
+        condition: "tool_category == 'ecommerce' and 'delete' in tool_name.lower() and 'product' in tool_name.lower()"
+        action: "require_approval"
+        reason: "Product deletion requires approval to prevent accidental data loss"
+        priority: 93
+        risk_impact: 0.8
+
+      - name: "block_inventory_negative"
+        condition: "tool_category == 'ecommerce' and 'inventory' in tool_name.lower() and arguments.get('inventory_quantity', 0) < 0"
+        action: "deny"
+        reason: "Negative inventory values are not allowed"
+        priority: 89
+        risk_impact: 0.5
+
+      - name: "require_approval_store_settings"
+        condition: "tool_category == 'ecommerce' and ('settings' in tool_name.lower() or 'config' in tool_name.lower())"
+        action: "require_approval"
+        reason: "Store configuration changes require approval"
+        priority: 94
+        risk_impact: 0.85
